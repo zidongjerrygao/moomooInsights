@@ -1,4 +1,4 @@
-const API = "http://localhost:8001";
+const API = "";
 
 // ── Auth helpers ──────────────────────────────────────────────────────────────
 function getToken() { return localStorage.getItem("moomoo_token"); }
