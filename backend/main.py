@@ -493,6 +493,31 @@ def list_companies(db: Session = Depends(get_db)):
     return [{"id": c.id, "ticker": c.ticker, "name": c.name, "sector": c.sector, "weight_pct": c.weight_pct} for c in companies]
 
 
+class CompanyIn(BaseModel):
+    ticker: str
+    name: str
+    sector: Optional[str] = None
+    weight_pct: Optional[float] = None
+
+
+@app.post("/api/companies", status_code=201)
+def create_company(payload: CompanyIn, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    existing = db.query(Company).filter(Company.ticker == payload.ticker.upper()).first()
+    if existing:
+        for field, value in payload.model_dump(exclude_unset=True).items():
+            if field == "ticker":
+                continue
+            setattr(existing, field, value)
+        db.commit()
+        db.refresh(existing)
+        return {"id": existing.id, "ticker": existing.ticker, "name": existing.name, "sector": existing.sector, "weight_pct": existing.weight_pct}
+    c = Company(ticker=payload.ticker.upper(), name=payload.name, sector=payload.sector, weight_pct=payload.weight_pct or 0.0)
+    db.add(c)
+    db.commit()
+    db.refresh(c)
+    return {"id": c.id, "ticker": c.ticker, "name": c.name, "sector": c.sector, "weight_pct": c.weight_pct}
+
+
 @app.get("/api/status")
 def api_status():
     return {"server_time": datetime.utcnow().isoformat(), "status": "ok"}
