@@ -4,7 +4,6 @@ sqlalchemy==2.0.35
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 python-multipart==0.0.9
-futu-api==9.3.3208
 apscheduler==3.10.4
 anthropic>=0.40.0
 yfinance>=0.2.40
