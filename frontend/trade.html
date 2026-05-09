@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Trade — Moomoo Insights</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .stock-header {
+      background: var(--white);
+      border-radius: var(--radius);
+      box-shadow: var(--card-shadow);
+      padding: 28px 32px;
+      margin-bottom: 32px;
+      display: flex;
+      align-items: center;
+      gap: 32px;
+    }
+    .stock-header-logo {
+      width: 56px;
+      height: 56px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      flex-shrink: 0;
+    }
+    .stock-header-logo.tsla { background: linear-gradient(135deg, #cc0000 0%, #ff4444 100%); }
+    .stock-header-logo.nvda { background: linear-gradient(135deg, #76b900 0%, #a3e635 100%); }
+    .stock-header-info { flex: 1; }
+    .stock-header-ticker { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-muted); margin-bottom: 2px; }
+    .stock-header-name { font-size: 22px; font-weight: 800; color: var(--text); line-height: 1.2; }
+    .stock-header-price { text-align: right; flex-shrink: 0; }
+    .stock-header-price .price { font-size: 28px; font-weight: 800; color: var(--text); letter-spacing: -0.5px; }
+    .stock-header-price .change { font-size: 15px; font-weight: 700; margin-top: 2px; }
+    .stock-header-price .change.up { color: #16a34a; }
+    .stock-header-price .change.dn { color: #dc2626; }
+    .stock-header-price .vol { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+    .trade-empty {
+      text-align: center;
+      padding: 60px 24px;
+      color: var(--text-muted);
+    }
+    .trade-empty .icon { font-size: 48px; margin-bottom: 16px; }
+    .trade-empty p { font-size: 15px; }
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <div class="nav-logo">moomoo<span>Insights</span></div>
+    <div class="nav-links" id="nav-links"></div>
+    <div id="nav-user-info"></div>
+    <div class="nav-actions" id="nav-actions"></div>
+  </div>
+</nav>
+
+<div class="ticker-bar" id="ticker-bar"></div>
+
+<main class="page">
+
+  <div class="section-head">
+    <h2 data-i18n="trade_heading">Trade</h2>
+  </div>
+
+  <div class="admin-tabs" id="trade-tabs">
+    <div class="admin-tab active" data-ticker="TSLA">TSLA</div>
+    <div class="admin-tab" data-ticker="NVDA">NVDA</div>
+  </div>
+
+  <div id="trade-content" style="margin-top:24px;">
+    <div class="loading-center"><div class="spinner"></div></div>
+  </div>
+
+</main>
+
+<footer class="footer" data-i18n="footer_copy">© 2026 Moomoo Insights</footer>
+
+<script src="i18n.js"></script>
+<script src="app.js"></script>
+<script>
+let activeTicker = "TSLA";
+let marketsData = null;
+
+const STOCK_META = {
+  TSLA: {
+    name: "Tesla, Inc.",
+    logoClass: "tsla",
+    emoji: "🚗",
+    description: "EV, energy storage, and autonomous driving. High-volatility, sentiment-driven.",
+  },
+  NVDA: {
+    name: "NVIDIA Corporation",
+    logoClass: "nvda",
+    emoji: "🟢",
+    description: "AI infrastructure, GPUs, and data center. Largest AI-era beneficiary.",
+  },
+};
+
+document.querySelectorAll("#trade-tabs .admin-tab").forEach(tab => {
+  tab.addEventListener("click", () => {
+    document.querySelectorAll("#trade-tabs .admin-tab").forEach(t => t.classList.remove("active"));
+    tab.classList.add("active");
+    activeTicker = tab.dataset.ticker;
+    renderTrade();
+  });
+});
+
+async function loadMarketsOnce() {
+  if (marketsData) return marketsData;
+  try {
+    marketsData = await apiGet("/api/markets");
+  } catch {
+    marketsData = { movers: [] };
+  }
+  return marketsData;
+}
+
+async function renderTrade() {
+  const container = document.getElementById("trade-content");
+  container.innerHTML = `<div class="loading-center"><div class="spinner"></div></div>`;
+
+  const [markets, articles] = await Promise.all([
+    loadMarketsOnce(),
+    apiGet(`/api/articles?category=${encodeURIComponent(activeTicker)}`).catch(() => []),
+  ]);
+
+  const meta = STOCK_META[activeTicker];
+  const mover = (markets.movers || []).find(m => m.ticker === activeTicker);
+
+  let priceHTML;
+  if (mover) {
+    const cls = mover.change_pct >= 0 ? "up" : "dn";
+    const sign = mover.change_pct >= 0 ? "+" : "";
+    const vol = mover.volume ? `Vol ${(mover.volume / 1e6).toFixed(1)}M` : "";
+    priceHTML = `
+      <div class="price">$${mover.price.toFixed(2)}</div>
+      <div class="change ${cls}">${sign}${mover.change_pct.toFixed(2)}%</div>
+      ${vol ? `<div class="vol">${vol}</div>` : ""}
+    `;
+  } else {
+    priceHTML = `<div class="price" style="font-size:16px;color:var(--text-muted);">${t("trade_price_unavailable")}</div>`;
+  }
+
+  let html = `
+    <div class="stock-header">
+      <div class="stock-header-logo ${meta.logoClass}">${meta.emoji}</div>
+      <div class="stock-header-info">
+        <div class="stock-header-ticker">${activeTicker}</div>
+        <div class="stock-header-name">${meta.name}</div>
+        <div style="font-size:13px;color:var(--text-muted);margin-top:4px;">${meta.description}</div>
+      </div>
+      <div class="stock-header-price">${priceHTML}</div>
+    </div>
+  `;
+
+  if (!articles.length) {
+    html += `
+      <div class="trade-empty">
+        <div class="icon">${meta.emoji}</div>
+        <p>No ${activeTicker} analysis yet.<br>
+           <span style="font-size:13px;">Publish an article with category <strong>${activeTicker}</strong> to see it here.</span>
+        </p>
+      </div>
+    `;
+  } else {
+    const featured = articles[0];
+    const rest = articles.slice(1);
+    html += `
+      <div class="section-head"><h2>${t("trade_latest")}</h2></div>
+      <div class="hero-article" onclick="location.href='article.html?id=${featured.id}'">
+        <div class="hero-article-img">${meta.emoji}</div>
+        <div class="hero-article-body">
+          <span class="hero-tag">${featured.category}</span>
+          <h1 class="hero-title">${featured.title}</h1>
+          <p class="hero-excerpt">${featured.excerpt || ""}</p>
+          <div class="hero-meta">${featured.author} · ${formatDate(featured.created_at)}</div>
+        </div>
+      </div>
+    `;
+    if (rest.length) {
+      html += `
+        <div class="section-head" style="margin-top:32px;"><h2>${t("strat_more")} ${activeTicker}</h2></div>
+        <div class="grid-3">${rest.map(articleCardHTML).join("")}</div>
+      `;
+    }
+  }
+
+  container.innerHTML = html;
+}
+
+renderTrade();
+</script>
+</body>
+</html>

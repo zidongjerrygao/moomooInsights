@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Moomoo Insights — Market Intelligence</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <div class="nav-logo">moomoo<span>Insights</span></div>
+    <div class="nav-links" id="nav-links"></div>
+    <div id="nav-user-info"></div>
+    <div class="nav-actions" id="nav-actions"></div>
+  </div>
+</nav>
+
+<div class="ticker-bar" id="ticker-bar"></div>
+
+<main class="page" id="main">
+  <div class="loading-center"><div class="spinner"></div></div>
+</main>
+
+<footer class="footer">
+  <span data-i18n="footer_copy">© 2026 Moomoo Insights</span> · <a href="#" data-i18n="footer_privacy">Privacy</a> · <a href="#" data-i18n="footer_terms">Terms</a>
+</footer>
+
+<script src="i18n.js"></script>
+<script src="app.js"></script>
+<script>
+async function loadPage() {
+  try {
+    const articles = await apiGet("/api/articles");
+    const main = document.getElementById("main");
+
+    if (!articles.length) {
+      main.innerHTML = `<div class="empty-state"><div class="icon">📰</div><p>No articles yet. Check back soon.</p></div>`;
+      return;
+    }
+
+    const featured = articles.find(a => a.featured) || articles[0];
+    const briefs = articles.filter(a => a.category === "Market Analysis" && a.id !== featured.id);
+    const earningsArticles = articles.filter(a => a.category === "Earnings");
+
+    let html = `
+      <div class="hero-article" onclick="location.href='article.html?id=${featured.id}'">
+        <div class="hero-article-img">${categoryEmoji(featured.category)}</div>
+        <div class="hero-article-body">
+          <span class="hero-tag">${featured.category || "Featured"}</span>
+          <h1 class="hero-title">${featured.title}</h1>
+          <p class="hero-excerpt">${featured.excerpt || ""}</p>
+          <div class="hero-meta">${featured.author} · ${formatDate(featured.created_at)}</div>
+        </div>
+      </div>
+    `;
+
+    html += `<div class="section-head"><h2>${t("idx_daily_brief")}</h2></div>`;
+    if (briefs.length) {
+      html += `<div class="grid-3">${briefs.slice(0, 4).map(articleCardHTML).join("")}</div>`;
+    } else {
+      html += `<div class="empty-state" style="padding:32px 0;"><div class="icon" style="font-size:32px;margin-bottom:8px;">📊</div><p>${t("idx_new_brief")}</p></div>`;
+    }
+
+    html += `<div style="height:40px;"></div>`;
+
+    html += `<div class="section-head"><h2>${t("idx_earnings")}</h2></div>`;
+    if (earningsArticles.length) {
+      html += `<div class="grid-3">${earningsArticles.slice(0, 8).map(articleCardHTML).join("")}</div>`;
+    } else {
+      html += `<div class="empty-state" style="padding:32px 0;"><div class="icon" style="font-size:32px;margin-bottom:8px;">💰</div><p>${t("idx_earnings_sub")}</p></div>`;
+    }
+
+    main.innerHTML = html;
+  } catch (e) {
+    document.getElementById("main").innerHTML = `<div class="empty-state"><div class="icon">⚠️</div><p>Could not load articles. Is the server running?<br><small>${e.message}</small></p></div>`;
+  }
+}
+
+loadPage();
+</script>
+</body>
+</html>

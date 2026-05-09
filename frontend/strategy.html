@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Strategy — Moomoo Insights</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <div class="nav-logo">moomoo<span>Insights</span></div>
+    <div class="nav-links" id="nav-links"></div>
+    <div id="nav-user-info"></div>
+    <div class="nav-actions" id="nav-actions"></div>
+  </div>
+</nav>
+
+<div class="ticker-bar" id="ticker-bar"></div>
+
+<main class="page">
+
+  <div class="section-head">
+    <h2 data-i18n="strat_heading">Strategy</h2>
+  </div>
+
+  <div class="admin-tabs" id="strategy-tabs">
+    <div class="admin-tab active" data-cat="Macro" data-i18n="strat_macro">Macro</div>
+    <div class="admin-tab" data-cat="Equity" data-i18n="strat_equity">Equity</div>
+    <div class="admin-tab" data-cat="Credit" data-i18n="strat_credit">Credit</div>
+  </div>
+
+  <div id="strategy-content" style="margin-top:24px;">
+    <div class="loading-center"><div class="spinner"></div></div>
+  </div>
+
+</main>
+
+<footer class="footer" data-i18n="footer_copy">© 2026 Moomoo Insights</footer>
+
+<script src="i18n.js"></script>
+<script src="app.js"></script>
+<script>
+let activeCategory = "Macro";
+
+document.querySelectorAll("#strategy-tabs .admin-tab").forEach(tab => {
+  tab.addEventListener("click", () => {
+    document.querySelectorAll("#strategy-tabs .admin-tab").forEach(t => t.classList.remove("active"));
+    tab.classList.add("active");
+    activeCategory = tab.dataset.cat;
+    loadStrategy();
+  });
+});
+
+async function loadStrategy() {
+  const container = document.getElementById("strategy-content");
+  container.innerHTML = `<div class="loading-center"><div class="spinner"></div></div>`;
+  try {
+    const articles = await apiGet(`/api/articles?category=${encodeURIComponent(activeCategory)}`);
+    if (!articles.length) {
+      container.innerHTML = `<div class="empty-state"><div class="icon">${catIcon(activeCategory)}</div><p>No ${activeCategory} pieces yet.</p></div>`;
+      return;
+    }
+    const featured = articles[0];
+    const rest = articles.slice(1);
+    let html = `
+      <div class="hero-article" onclick="location.href='article.html?id=${featured.id}'">
+        <div class="hero-article-img">${categoryEmoji(featured.category)}</div>
+        <div class="hero-article-body">
+          <span class="hero-tag">${featured.category}</span>
+          <h1 class="hero-title">${featured.title}</h1>
+          <p class="hero-excerpt">${featured.excerpt || ""}</p>
+          <div class="hero-meta">${featured.author} · ${formatDate(featured.created_at)}</div>
+        </div>
+      </div>
+    `;
+    if (rest.length) {
+      html += `
+        <div class="section-head" style="margin-top:32px;"><h2>${t("strat_more")} ${activeCategory}</h2></div>
+        <div class="grid-3">${rest.map(articleCardHTML).join("")}</div>
+      `;
+    }
+    container.innerHTML = html;
+  } catch (e) {
+    container.innerHTML = `<div class="empty-state"><div class="icon">⚠️</div><p>${e.message}</p></div>`;
+  }
+}
+
+function catIcon(cat) {
+  return { Macro: "🌐", Equity: "📈", Credit: "💳" }[cat] || "📊";
+}
+
+loadStrategy();
+</script>
+</body>
+</html>

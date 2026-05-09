@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Welcome to Premium — Moomoo Insights</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .success-page { min-height: 100vh; background: var(--bg); display: flex; align-items: center; justify-content: center; padding: 40px 16px; }
+    .success-card { background: white; border-radius: 20px; box-shadow: var(--card-shadow); max-width: 460px; width: 100%; padding: 48px 40px; text-align: center; }
+    .success-icon { font-size: 56px; margin-bottom: 20px; }
+    .success-title { font-size: 26px; font-weight: 800; color: var(--navy); margin-bottom: 10px; }
+    .success-sub { font-size: 15px; color: var(--text-muted); line-height: 1.6; margin-bottom: 32px; }
+    .success-badge { display: inline-block; background: linear-gradient(135deg,#fbbf24,#f59e0b); color: #1a1a2e; font-size: 12px; font-weight: 800; padding: 6px 18px; border-radius: 20px; letter-spacing: 0.06em; margin-bottom: 32px; }
+    .btn-home { display: inline-block; padding: 13px 32px; background: var(--orange); color: white; border-radius: 10px; font-weight: 700; font-size: 15px; text-decoration: none; transition: background 0.15s; }
+    .btn-home:hover { background: var(--orange-dark); }
+  </style>
+</head>
+<body>
+<div class="success-page">
+  <div class="success-card">
+    <div class="success-icon">⭐</div>
+    <div class="success-title" data-i18n="pay_success_title">Welcome to Premium!</div>
+    <div class="success-sub" data-i18n="pay_success_sub">Your subscription is active. You now have full access to all Moomoo Insights Premium features.</div>
+    <div class="success-badge" data-i18n="pay_success_badge">⭐ PREMIUM MEMBER</div>
+    <br/>
+    <a href="index.html" class="btn-home" data-i18n="pay_success_btn">Start Reading →</a>
+  </div>
+</div>
+<script src="i18n.js"></script>
+<script src="app.js"></script>
+<script>
+  document.addEventListener("DOMContentLoaded", async () => {
+    if (getToken()) {
+      try {
+        const user = await apiGet("/auth/me");
+        localStorage.setItem("moomoo_user", JSON.stringify(user));
+      } catch {}
+    }
+  });
+</script>
+</body>
+</html>

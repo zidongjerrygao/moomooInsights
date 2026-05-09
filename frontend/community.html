@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <title>Community — Moomoo Insights</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <div class="nav-logo">moomoo<span>Insights</span></div>
+    <div class="nav-links" id="nav-links"></div>
+    <div id="nav-user-info"></div>
+    <div class="nav-actions" id="nav-actions"></div>
+  </div>
+</nav>
+
+<div class="ticker-bar" id="ticker-bar"></div>
+
+<!-- New Post Modal -->
+<div class="modal-overlay" id="new-post-modal">
+  <div class="modal">
+    <div class="modal-title" data-i18n="comm_modal_title">New Community Post</div>
+    <div class="form-group">
+      <label data-i18n="comm_post_title">Title</label>
+      <input class="form-control" id="post-title" data-i18n-ph="comm_post_title_ph" placeholder="Post title" />
+    </div>
+    <div class="form-group">
+      <label data-i18n="comm_cat_lbl">Category</label>
+      <select class="form-control" id="post-category">
+        <option>General</option>
+        <option>Market News</option>
+        <option>Earnings</option>
+        <option>Strategy</option>
+        <option>Education</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label data-i18n="comm_body_lbl">Content</label>
+      <textarea class="form-control" id="post-body" style="min-height:200px;" data-i18n-ph="comm_post_body_ph" placeholder="Write your post…"></textarea>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button class="btn btn-ghost" onclick="closeModal('new-post-modal')" data-i18n="comm_cancel">Cancel</button>
+      <button class="btn btn-primary" onclick="submitPost()" data-i18n="comm_submit">Publish</button>
+    </div>
+  </div>
+</div>
+
+<!-- Post detail Modal -->
+<div class="modal-overlay" id="post-detail-modal">
+  <div class="modal" style="max-width:700px;">
+    <div id="post-detail-content"></div>
+    <hr style="margin:20px 0;border-color:var(--border);" />
+    <div id="comments-section"></div>
+    <div id="comment-form"></div>
+    <div style="margin-top:16px;">
+      <button class="btn btn-ghost" onclick="closeModal('post-detail-modal')" data-i18n="comm_close">Close</button>
+    </div>
+  </div>
+</div>
+
+<main class="page">
+
+  <div class="section-head">
+    <h2 data-i18n="comm_heading">Community</h2>
+    <button class="btn btn-primary btn-sm" id="new-post-btn" onclick="openModal('new-post-modal')">+ New Post</button>
+  </div>
+
+  <div class="category-filter" id="cat-filter">
+    <button class="cat-btn active" data-cat="" data-i18n="comm_all">All</button>
+    <button class="cat-btn" data-cat="Market News" data-i18n="comm_market_news">Market News</button>
+    <button class="cat-btn" data-cat="Earnings" data-i18n="comm_earnings">Earnings</button>
+    <button class="cat-btn" data-cat="Strategy" data-i18n="strat_heading">Strategy</button>
+    <button class="cat-btn" data-cat="Education" data-i18n="comm_education">Education</button>
+    <button class="cat-btn" data-cat="General" data-i18n="comm_general">General</button>
+  </div>
+
+  <div id="posts-list" style="display:flex;flex-direction:column;gap:12px;">
+    <div class="loading-center"><div class="spinner"></div></div>
+  </div>
+
+</main>
+
+<footer class="footer" data-i18n="footer_copy">© 2026 Moomoo Insights</footer>
+
+<script src="i18n.js"></script>
+<script src="app.js"></script>
+<script>
+let currentCat = "";
+
+document.querySelectorAll(".cat-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".cat-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    currentCat = btn.dataset.cat;
+    loadPosts();
+  });
+});
+
+async function loadPosts() {
+  const container = document.getElementById("posts-list");
+  container.innerHTML = `<div class="loading-center"><div class="spinner"></div></div>`;
+  try {
+    const url = currentCat ? `/api/community?category=${encodeURIComponent(currentCat)}` : "/api/community";
+    const posts = await apiGet(url);
+    if (!posts.length) {
+      container.innerHTML = `<div class="empty-state"><div class="icon">💬</div><p>${t("comm_no_posts")}</p></div>`;
+      return;
+    }
+    container.innerHTML = posts.map(p => `
+      <div class="community-card" onclick="openPost(${p.id})">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <span class="tag">${p.category}</span>
+        </div>
+        <div class="community-card-title">${p.title}</div>
+        <div class="community-card-body">${p.body}</div>
+        <div class="community-card-meta">
+          <span>👤 ${p.author}</span>
+          <span>💬 ${p.comment_count} ${t("comm_comments")}</span>
+          <span>📅 ${formatDate(p.created_at)}</span>
+        </div>
+      </div>
+    `).join("");
+  } catch (e) {
+    container.innerHTML = `<div class="empty-state"><div class="icon">⚠️</div><p>${e.message}</p></div>`;
+  }
+}
+
+async function openPost(id) {
+  try {
+    const p = await apiGet(`/api/community/${id}`);
+    const user = getUser();
+
+    const canDeletePost = user && (user.is_admin || user.id == p.post_user_id);
+    const deletePostBtn = canDeletePost
+      ? `<button onclick="deletePost(${p.id})" style="background:none;border:1px solid #fca5a5;border-radius:6px;cursor:pointer;color:#ef4444;font-size:12px;font-weight:600;padding:4px 10px;transition:background 0.15s;"
+          onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background='none'">🗑 Delete Post</button>`
+      : "";
+    document.getElementById("post-detail-content").innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+        <span class="tag">${p.category}</span>
+        ${deletePostBtn}
+      </div>
+      <h2 style="font-size:22px;font-weight:800;margin-bottom:10px;">${p.title}</h2>
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:20px;">By ${p.author} · ${formatDate(p.created_at)}</div>
+      <div style="font-size:15px;line-height:1.7;white-space:pre-wrap;">${p.body}</div>
+    `;
+
+    const commentsHTML = p.comments && p.comments.length
+      ? p.comments.map(c => {
+          const canDelete = user && (user.is_admin || user.id == c.user_id || user.id == p.post_user_id);
+          const deleteBtn = canDelete ? `
+            <button onclick="deleteComment(${id},${c.id})" title="Delete comment"
+              style="flex-shrink:0;display:flex;align-items:center;gap:4px;background:none;border:1px solid #fca5a5;border-radius:6px;cursor:pointer;color:#ef4444;font-size:12px;font-weight:600;padding:3px 8px;line-height:1;transition:background 0.15s;"
+              onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background='none'">
+              🗑 Delete
+            </button>` : "";
+          return `
+          <div style="padding:12px 0;border-bottom:1px solid var(--border);">
+            <div style="display:flex;align-items:flex-start;gap:8px;">
+              <div style="flex:1;">
+                <div style="font-size:13px;font-weight:600;margin-bottom:4px;">${c.author} <span style="color:var(--text-muted);font-weight:400;">· ${formatDate(c.created_at)}</span></div>
+                <div style="font-size:14px;line-height:1.6;">${c.body}</div>
+              </div>
+              ${deleteBtn}
+            </div>
+          </div>`;
+        }).join("")
+      : `<div style="color:var(--text-muted);font-size:14px;padding:12px 0;">${t("comm_no_comments")}</div>`;
+
+    document.getElementById("comments-section").innerHTML = `
+      <div style="font-weight:700;font-size:15px;margin-bottom:12px;">${t("comm_comments_heading")} (${(p.comments || []).length})</div>
+      ${commentsHTML}
+    `;
+
+    document.getElementById("comment-form").innerHTML = user
+      ? `<div style="margin-top:16px;">
+          <textarea class="form-control" id="comment-input" placeholder="Write a comment…" style="min-height:80px;"></textarea>
+          <div style="margin-top:8px;text-align:right;">
+            <button class="btn btn-primary btn-sm" onclick="submitComment(${id})">${t("comm_post_comment")}</button>
+          </div>
+        </div>`
+      : `<div style="margin-top:16px;font-size:13px;color:var(--text-muted);">
+          <a href="login.html" style="color:var(--orange);">Log in</a> to leave a comment.
+        </div>`;
+
+    openModal("post-detail-modal");
+  } catch (e) {
+    toast(e.message, "error");
+  }
+}
+
+async function submitComment(postId) {
+  const body = document.getElementById("comment-input").value.trim();
+  if (!body) return;
+  try {
+    await apiPost(`/api/community/${postId}/comments`, { body });
+    toast("Comment posted!", "success");
+    openPost(postId);
+  } catch (e) {
+    toast(e.message, "error");
+  }
+}
+
+async function submitPost() {
+  if (!getUser()) { location.href = "login.html"; return; }
+  const title = document.getElementById("post-title").value.trim();
+  const body = document.getElementById("post-body").value.trim();
+  const category = document.getElementById("post-category").value;
+  if (!title || !body) { toast("Title and content required", "error"); return; }
+  try {
+    await apiPost("/api/community", { title, body, category });
+    toast("Post published!", "success");
+    closeModal("new-post-modal");
+    document.getElementById("post-title").value = "";
+    document.getElementById("post-body").value = "";
+    loadPosts();
+  } catch (e) {
+    toast(e.message, "error");
+  }
+}
+
+async function deletePost(postId) {
+  if (!getUser()) { location.href = "login.html"; return; }
+  if (!confirm("Delete this post and all its comments?")) return;
+  try {
+    await apiDelete(`/api/community/${postId}`);
+    toast("Post deleted", "success");
+    closeModal("post-detail-modal");
+    loadPosts();
+  } catch (e) {
+    toast(e.message, "error");
+  }
+}
+
+async function deleteComment(postId, commentId) {
+  if (!getUser()) { location.href = "login.html"; return; }
+  if (!confirm("Delete this comment?")) return;
+  try {
+    await apiDelete(`/api/community/${postId}/comments/${commentId}`);
+    toast("Comment deleted", "success");
+    openPost(postId);
+  } catch (e) {
+    toast(e.message, "error");
+  }
+}
+
+loadPosts();
+</script>
+</body>
+</html>

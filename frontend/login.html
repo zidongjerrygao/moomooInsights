@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login — Moomoo Insights</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div class="auth-page">
+  <div class="auth-card">
+    <div class="auth-logo">moomoo<span>Insights</span></div>
+    <div class="auth-subtitle" data-i18n="login_subtitle">Market intelligence for everyone</div>
+
+    <div class="auth-tabs">
+      <div class="auth-tab active" id="tab-login" onclick="switchTab('login')" data-i18n="login_tab_login">Log In</div>
+      <div class="auth-tab" id="tab-register" onclick="switchTab('register')" data-i18n="login_tab_signup">Sign Up</div>
+    </div>
+
+    <!-- Login form -->
+    <div id="form-login">
+      <div class="form-group">
+        <label data-i18n="login_email_lbl">Email</label>
+        <input class="form-control" type="email" id="login-email" data-i18n-ph="login_email_ph" placeholder="you@example.com" />
+      </div>
+      <div class="form-group">
+        <label data-i18n="login_password_lbl">Password</label>
+        <input class="form-control" type="password" id="login-password" data-i18n-ph="login_password_ph" placeholder="Password" />
+      </div>
+      <div id="login-error" style="color:#dc2626;font-size:13px;margin-bottom:12px;display:none;"></div>
+      <button class="btn btn-primary" style="width:100%;" onclick="doLogin()" data-i18n="login_btn_login">Log In</button>
+    </div>
+
+    <!-- Register form -->
+    <div id="form-register" style="display:none;">
+      <div class="form-group">
+        <label data-i18n="login_name_lbl">Display Name</label>
+        <input class="form-control" type="text" id="reg-name" data-i18n-ph="login_name_ph" placeholder="Your name" />
+      </div>
+      <div class="form-group">
+        <label data-i18n="login_email_lbl">Email</label>
+        <input class="form-control" type="email" id="reg-email" data-i18n-ph="login_email_ph" placeholder="you@example.com" />
+      </div>
+      <div class="form-group">
+        <label data-i18n="login_password_lbl">Password</label>
+        <input class="form-control" type="password" id="reg-password" data-i18n-ph="login_password_reg_ph" placeholder="At least 6 characters" />
+      </div>
+      <div id="reg-error" style="color:#dc2626;font-size:13px;margin-bottom:12px;display:none;"></div>
+      <button class="btn btn-primary" style="width:100%;" onclick="doRegister()" data-i18n="login_btn_signup">Create Account</button>
+      <div style="font-size:12px;color:var(--text-muted);text-align:center;margin-top:12px;" data-i18n="login_first_admin">
+        The first account created becomes admin.
+      </div>
+    </div>
+
+    <div style="text-align:center;margin-top:20px;">
+      <a href="index.html" style="font-size:13px;color:var(--text-muted);" data-i18n="login_back">← Back to Moomoo Insights</a>
+    </div>
+  </div>
+</div>
+
+<script src="i18n.js"></script>
+<script src="app.js"></script>
+<script>
+// Auto-switch tab if ?tab=register
+const params = new URLSearchParams(location.search);
+if (params.get("tab") === "register") switchTab("register");
+
+function switchTab(tab) {
+  document.getElementById("form-login").style.display    = tab === "login"    ? "" : "none";
+  document.getElementById("form-register").style.display = tab === "register" ? "" : "none";
+  document.getElementById("tab-login").classList.toggle("active", tab === "login");
+  document.getElementById("tab-register").classList.toggle("active", tab === "register");
+}
+
+async function doLogin() {
+  const email    = document.getElementById("login-email").value.trim();
+  const password = document.getElementById("login-password").value;
+  const errEl    = document.getElementById("login-error");
+  errEl.style.display = "none";
+  try {
+    const res = await apiPost("/auth/login", { email, password });
+    localStorage.setItem("moomoo_token", res.token);
+    localStorage.setItem("moomoo_user", JSON.stringify(res.user));
+    location.href = "index.html";
+  } catch (e) {
+    errEl.textContent = e.message;
+    errEl.style.display = "block";
+  }
+}
+
+async function doRegister() {
+  const display_name = document.getElementById("reg-name").value.trim();
+  const email        = document.getElementById("reg-email").value.trim();
+  const password     = document.getElementById("reg-password").value;
+  const errEl        = document.getElementById("reg-error");
+  errEl.style.display = "none";
+  if (password.length < 6) { errEl.textContent = "Password must be at least 6 characters"; errEl.style.display = "block"; return; }
+  try {
+    const res = await apiPost("/auth/register", { email, password, display_name });
+    localStorage.setItem("moomoo_token", res.token);
+    localStorage.setItem("moomoo_user", JSON.stringify(res.user));
+    location.href = "index.html";
+  } catch (e) {
+    errEl.textContent = e.message;
+    errEl.style.display = "block";
+  }
+}
+
+// Enter key support
+document.addEventListener("keydown", e => {
+  if (e.key === "Enter") {
+    if (document.getElementById("form-login").style.display !== "none") doLogin();
+    else doRegister();
+  }
+});
+</script>
+</body>
+</html>

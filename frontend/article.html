@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Article — Moomoo Insights</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    .article-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 360px;
+      gap: 32px;
+      align-items: start;
+    }
+    @media (max-width: 1280px) {
+      .article-layout { grid-template-columns: minmax(0, 1fr) 300px; gap: 24px; }
+    }
+    @media (max-width: 900px) {
+      .article-layout { grid-template-columns: 1fr; gap: 20px; }
+      .article-sidebar { position: static !important; }
+    }
+    .article-sidebar { position: sticky; top: 100px; display: flex; flex-direction: column; gap: 20px; }
+    .sidebar-card { background: white; border-radius: var(--radius); padding: 20px; box-shadow: var(--card-shadow); }
+    .sidebar-card h3 { font-size: 14px; font-weight: 700; margin-bottom: 14px; color: var(--text); border-bottom: 2px solid var(--orange); padding-bottom: 8px; display: inline-block; }
+    .related-item { display: flex; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); cursor: pointer; }
+    .related-item:last-child { border-bottom: none; }
+    .related-item:hover .related-title { color: var(--orange); }
+    .related-emoji { font-size: 24px; flex-shrink: 0; }
+    .related-title { font-size: 13px; font-weight: 600; line-height: 1.4; }
+    .related-date { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
+    .admin-toolbar { background: var(--navy); color: white; padding: 10px 16px; border-radius: 8px; display: flex; align-items: center; gap: 10px; margin-bottom: 20px; font-size: 13px; }
+    .lang-edit-tabs { display: flex; gap: 0; margin-bottom: 16px; border-bottom: 1px solid var(--border); }
+    .lang-edit-tab { padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; background: none; color: var(--text-muted); border-bottom: 2px solid transparent; transition: color 0.15s, border-color 0.15s; }
+    .lang-edit-tab.active { color: var(--orange); border-bottom-color: var(--orange); }
+    .lang-edit-pane { display: none; }
+    .lang-edit-pane.active { display: block; }
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <div class="nav-logo">moomoo<span>Insights</span></div>
+    <div class="nav-links" id="nav-links"></div>
+    <div id="nav-user-info"></div>
+    <div class="nav-actions" id="nav-actions"></div>
+  </div>
+</nav>
+
+<div class="ticker-bar" id="ticker-bar"></div>
+
+<main class="page" id="main">
+  <div class="loading-center"><div class="spinner"></div></div>
+</main>
+
+<!-- Edit modal (admin) -->
+<div class="modal-overlay" id="edit-modal">
+  <div class="modal" style="max-width:900px;width:100%;">
+    <div class="modal-title" data-i18n="art_edit">Edit Article</div>
+    <div class="form-group">
+      <label data-i18n="art_category_lbl">Category</label>
+      <input class="form-control" id="edit-category" />
+    </div>
+    <div class="form-group">
+      <label data-i18n="art_tags_lbl">Tags (comma-separated)</label>
+      <input class="form-control" id="edit-tags" />
+    </div>
+    <div class="lang-edit-tabs">
+      <button class="lang-edit-tab active" onclick="switchEditLang('en', this)">English</button>
+      <button class="lang-edit-tab" onclick="switchEditLang('zh-cn', this)">简体中文</button>
+      <button class="lang-edit-tab" onclick="switchEditLang('zh-hk', this)">繁體中文</button>
+    </div>
+    <div class="lang-edit-pane active" id="pane-en">
+      <div class="form-group">
+        <label data-i18n="art_title_lbl">Title</label>
+        <input class="form-control" id="edit-title" />
+      </div>
+      <div class="form-group">
+        <label data-i18n="art_excerpt_lbl">Excerpt</label>
+        <textarea class="form-control" id="edit-excerpt" style="min-height:60px;"></textarea>
+      </div>
+      <div class="form-group">
+        <label data-i18n="art_content_lbl">Content HTML</label>
+        <textarea class="form-control" id="edit-content" style="min-height:300px;font-family:monospace;font-size:13px;"></textarea>
+      </div>
+    </div>
+    <div class="lang-edit-pane" id="pane-zh-cn">
+      <div class="form-group">
+        <label>标题（简体中文）</label>
+        <input class="form-control" id="edit-title-zh-cn" />
+      </div>
+      <div class="form-group">
+        <label>摘要（简体中文）</label>
+        <textarea class="form-control" id="edit-excerpt-zh-cn" style="min-height:60px;"></textarea>
+      </div>
+      <div class="form-group">
+        <label>内容 HTML（简体中文）</label>
+        <textarea class="form-control" id="edit-content-zh-cn" style="min-height:300px;font-family:monospace;font-size:13px;"></textarea>
+      </div>
+    </div>
+    <div class="lang-edit-pane" id="pane-zh-hk">
+      <div class="form-group">
+        <label>標題（繁體中文）</label>
+        <input class="form-control" id="edit-title-zh-hk" />
+      </div>
+      <div class="form-group">
+        <label>摘要（繁體中文）</label>
+        <textarea class="form-control" id="edit-excerpt-zh-hk" style="min-height:60px;"></textarea>
+      </div>
+      <div class="form-group">
+        <label>內容 HTML（繁體中文）</label>
+        <textarea class="form-control" id="edit-content-zh-hk" style="min-height:300px;font-family:monospace;font-size:13px;"></textarea>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px;">
+      <button class="btn btn-ghost" onclick="closeModal('edit-modal')" data-i18n="art_cancel">Cancel</button>
+      <button class="btn btn-primary" onclick="saveEdit()" data-i18n="art_save">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<footer class="footer" data-i18n="footer_copy">© 2026 Moomoo Insights</footer>
+
+<script src="i18n.js"></script>
+<script src="app.js"></script>
+<script>
+let articleId = null;
+
+function getLangField(obj, field) {
+  const lang = getLang();
+  if (lang === "zh-cn") return obj[`${field}_zh_cn`] || obj[field];
+  if (lang === "zh-hk") return obj[`${field}_zh_hk`] || obj[field];
+  return obj[field];
+}
+
+function switchEditLang(lang, el) {
+  document.querySelectorAll(".lang-edit-tab").forEach(t => t.classList.remove("active"));
+  document.querySelectorAll(".lang-edit-pane").forEach(p => p.classList.remove("active"));
+  el.classList.add("active");
+  document.getElementById(`pane-${lang}`).classList.add("active");
+}
+
+async function loadArticle() {
+  const params = new URLSearchParams(location.search);
+  articleId = params.get("id");
+  if (!articleId) { location.href = "index.html"; return; }
+
+  try {
+    const [article, allArticles] = await Promise.all([
+      apiGet(`/api/articles/${articleId}`),
+      apiGet("/api/articles"),
+    ]);
+
+    document.title = `${getLangField(article, 'title')} — Moomoo Insights`;
+
+    const related = allArticles.filter(a => a.id !== article.id && a.category === article.category).slice(0, 4);
+    const admin = isAdmin();
+
+    const main = document.getElementById("main");
+    main.innerHTML = `
+      <div class="breadcrumb">
+        <a href="index.html">News</a>
+        <span class="sep">›</span>
+        <a href="index.html">${article.category}</a>
+        <span class="sep">›</span>
+        <span>${getLangField(article, 'title')}</span>
+      </div>
+
+      ${admin ? `<div class="admin-toolbar">
+        ${t("art_admin_badge")}
+        <button class="btn btn-primary btn-sm" onclick="openEditModal()">${t("art_edit")}</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteArticle()">${t("art_delete")}</button>
+        <span style="margin-left:auto;opacity:0.6;">Published: ${article.published ? t("art_published_yes") : t("art_published_no")}</span>
+      </div>` : ""}
+
+      <div class="article-layout">
+        <div>
+          <div class="card card-pad">
+            <div style="margin-bottom:8px;"><span class="article-card-category">${article.category}</span></div>
+            <h1 style="font-size:32px;font-weight:800;line-height:1.25;margin-bottom:16px;">${getLangField(article, 'title')}</h1>
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;padding-bottom:20px;border-bottom:1px solid var(--border);">
+              <div style="width:36px;height:36px;border-radius:50%;background:var(--orange);display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:14px;">
+                ${(article.author || "M").charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <div style="font-weight:600;font-size:14px;">${article.author || "Moomoo Insights"}</div>
+                <div style="font-size:12px;color:var(--text-muted);">${formatDate(article.created_at)}</div>
+              </div>
+              <div style="margin-left:auto;" class="tags">
+                ${(article.tags || []).map(t => `<span class="tag">${t}</span>`).join("")}
+              </div>
+            </div>
+            <div class="article-content">${getLangField(article, 'content_html')}</div>
+          </div>
+        </div>
+
+        <div class="article-sidebar">
+          <div class="sidebar-card" id="market-sidebar">
+            <h3 data-i18n="art_markets">Markets</h3>
+            <div id="sidebar-markets"><div class="spinner" style="width:24px;height:24px;margin:8px 0;"></div></div>
+          </div>
+          ${related.length ? `<div class="sidebar-card">
+            <h3>${t("art_related")}</h3>
+            ${related.map(r => `
+              <div class="related-item" onclick="location.href='article.html?id=${r.id}'">
+                <div class="related-emoji">${categoryEmoji(r.category)}</div>
+                <div>
+                  <div class="related-title">${getLangField(r, 'title')}</div>
+                  <div class="related-date">${formatDate(r.created_at)}</div>
+                </div>
+              </div>`).join("")}
+          </div>` : ""}
+        </div>
+      </div>
+    `;
+
+    // Re-execute inline scripts from content_html (<script> tags in innerHTML don't auto-run)
+    document.querySelectorAll('#main script').forEach(function(s) {
+      if (!s.src) {
+        var el = document.createElement('script');
+        el.text = s.textContent;
+        document.body.appendChild(el);
+      }
+    });
+
+    // Populate edit modal
+    if (admin) {
+      document.getElementById("edit-title").value          = article.title;
+      document.getElementById("edit-excerpt").value        = article.excerpt || "";
+      document.getElementById("edit-category").value       = article.category || "";
+      document.getElementById("edit-tags").value           = (article.tags || []).join(", ");
+      document.getElementById("edit-content").value        = article.content_html;
+      document.getElementById("edit-title-zh-cn").value    = article.title_zh_cn || "";
+      document.getElementById("edit-excerpt-zh-cn").value  = article.excerpt_zh_cn || "";
+      document.getElementById("edit-content-zh-cn").value  = article.content_html_zh_cn || "";
+      document.getElementById("edit-title-zh-hk").value    = article.title_zh_hk || "";
+      document.getElementById("edit-excerpt-zh-hk").value  = article.excerpt_zh_hk || "";
+      document.getElementById("edit-content-zh-hk").value  = article.content_html_zh_hk || "";
+    }
+
+    loadSidebarMarkets();
+    if (typeof applyI18n === "function") applyI18n();
+  } catch (e) {
+    document.getElementById("main").innerHTML = `<div class="empty-state"><div class="icon">⚠️</div><p>${e.message}</p></div>`;
+  }
+}
+
+async function loadSidebarMarkets() {
+  try {
+    const data = await apiGet("/api/markets");
+    const items = (data.indices || []).slice(0, 4);
+    document.getElementById("sidebar-markets").innerHTML = items.map(i => {
+      const cls = i.change_pct >= 0 ? "td-up" : "td-dn";
+      const sign = i.change_pct >= 0 ? "+" : "";
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;">
+        <span style="font-weight:600;">${i.symbol}</span>
+        <span>${formatPrice(i.price, i.symbol)}</span>
+        <span class="${cls}">${sign}${i.change_pct.toFixed(2)}%</span>
+      </div>`;
+    }).join("") + `<a href="markets.html" style="display:block;text-align:center;margin-top:12px;font-size:13px;color:var(--orange);">${t("mkt_view_markets")}</a>`;
+  } catch {}
+}
+
+function openEditModal() { openModal("edit-modal"); }
+
+async function saveEdit() {
+  const payload = {
+    title:               document.getElementById("edit-title").value,
+    excerpt:             document.getElementById("edit-excerpt").value,
+    category:            document.getElementById("edit-category").value,
+    tags:                document.getElementById("edit-tags").value.split(",").map(s => s.trim()).filter(Boolean),
+    content_html:        document.getElementById("edit-content").value,
+    title_zh_cn:         document.getElementById("edit-title-zh-cn").value || null,
+    excerpt_zh_cn:       document.getElementById("edit-excerpt-zh-cn").value || null,
+    content_html_zh_cn:  document.getElementById("edit-content-zh-cn").value || null,
+    title_zh_hk:         document.getElementById("edit-title-zh-hk").value || null,
+    excerpt_zh_hk:       document.getElementById("edit-excerpt-zh-hk").value || null,
+    content_html_zh_hk:  document.getElementById("edit-content-zh-hk").value || null,
+  };
+  try {
+    await apiPut(`/api/articles/${articleId}`, payload);
+    toast("Article saved!", "success");
+    closeModal("edit-modal");
+    loadArticle();
+  } catch (e) {
+    toast(e.message, "error");
+  }
+}
+
+async function deleteArticle() {
+  if (!confirm("Delete this article? This cannot be undone.")) return;
+  try {
+    await apiDelete(`/api/articles/${articleId}`);
+    toast("Article deleted", "success");
+    setTimeout(() => location.href = "index.html", 800);
+  } catch (e) {
+    toast(e.message, "error");
+  }
+}
+
+loadArticle();
+</script>
+</body>
+</html>

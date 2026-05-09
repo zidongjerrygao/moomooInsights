@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Premium — Moomoo Insights</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .payment-page { min-height: 100vh; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 16px; }
+    .payment-card { background: white; border-radius: 20px; box-shadow: var(--card-shadow); max-width: 520px; width: 100%; overflow: hidden; }
+    .payment-header { background: linear-gradient(135deg, #1a1f3c, #252b4a); padding: 40px 40px 32px; text-align: center; }
+    .payment-logo { font-size: 22px; font-weight: 800; color: white; margin-bottom: 6px; }
+    .payment-logo span { color: #fbbf24; }
+    .payment-tagline { color: rgba(255,255,255,0.6); font-size: 14px; }
+    .payment-badge { display: inline-block; background: linear-gradient(135deg,#fbbf24,#f59e0b); color: #1a1a2e; font-size: 11px; font-weight: 800; padding: 4px 12px; border-radius: 20px; letter-spacing: 0.08em; margin-bottom: 18px; }
+    .payment-price { color: white; margin-top: 12px; }
+    .payment-price .amount { font-size: 52px; font-weight: 800; line-height: 1; }
+    .payment-price .period { font-size: 16px; color: rgba(255,255,255,0.6); margin-left: 4px; }
+    .payment-body { padding: 32px 40px 36px; }
+    .perks-title { font-size: 13px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 16px; }
+    .perk-row { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 13px; }
+    .perk-icon { width: 22px; height: 22px; background: #fef3c7; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; margin-top: 1px; }
+    .perk-text { font-size: 15px; color: var(--text); line-height: 1.5; }
+    .perk-text strong { font-weight: 700; }
+    .payment-divider { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
+    .btn-checkout { width: 100%; padding: 15px; background: linear-gradient(135deg, #fbbf24, #f59e0b); color: #1a1a2e; border: none; border-radius: 12px; font-size: 16px; font-weight: 800; cursor: pointer; transition: filter 0.15s, transform 0.1s; box-shadow: 0 4px 14px rgba(251,191,36,0.4); }
+    .btn-checkout:hover { filter: brightness(1.07); transform: translateY(-1px); }
+    .btn-checkout:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+    .payment-note { text-align: center; font-size: 12px; color: var(--text-muted); margin-top: 14px; }
+    .cancel-notice { text-align: center; margin-top: 10px; }
+    .cancel-notice a { font-size: 13px; color: var(--text-muted); text-decoration: underline; }
+    .error-msg { color: #dc2626; font-size: 13px; text-align: center; margin-top: 12px; display: none; }
+    .cancelled-banner { background: #fef2f2; border: 1px solid #fca5a5; border-radius: 10px; padding: 12px 16px; color: #dc2626; font-size: 14px; text-align: center; margin-bottom: 20px; display: none; }
+    .login-prompt { text-align: center; padding: 24px; color: var(--text-muted); font-size: 14px; }
+    .login-prompt a { color: var(--orange); font-weight: 600; text-decoration: none; }
+  </style>
+</head>
+<body>
+
+<div class="payment-page">
+  <div class="payment-card">
+    <div class="payment-header">
+      <div class="payment-logo">moomoo<span>Insights</span></div>
+      <div class="payment-tagline" data-i18n="pay_tagline">Institutional-grade research for retail investors</div>
+      <div style="margin-top:28px;">
+        <div class="payment-badge" data-i18n="pay_premium">⭐ PREMIUM</div>
+        <div class="payment-price">
+          <span class="amount">$9</span><span class="period" data-i18n="pay_per_month">/month</span>
+        </div>
+        <div style="color:rgba(255,255,255,0.5);font-size:13px;margin-top:6px;" data-i18n="pay_cancel_any">Cancel anytime · Billed monthly</div>
+      </div>
+    </div>
+
+    <div class="payment-body">
+      <div class="cancelled-banner" id="cancelled-banner">Payment cancelled — no charge was made.</div>
+      <div class="perks-title" data-i18n="pay_everything">Everything in Premium</div>
+
+      <div class="perk-row">
+        <div class="perk-icon">📊</div>
+        <div class="perk-text"><strong>Full Research Access</strong> — Cembalest-style macro deep-dives, earnings analysis, and strategy reports</div>
+      </div>
+      <div class="perk-row">
+        <div class="perk-icon">🤖</div>
+        <div class="perk-text"><strong>Unlimited AI Chat</strong> — Talk to Pro with no daily message limits</div>
+      </div>
+      <div class="perk-row">
+        <div class="perk-icon">🐋</div>
+        <div class="perk-text"><strong>Daily Trade Briefs</strong> — TSLA, NVDA, and SPX setups with Smart Money levels and options flow</div>
+      </div>
+      <div class="perk-row">
+        <div class="perk-icon">⚡</div>
+        <div class="perk-text"><strong>Earnings Alerts</strong> — Pre-market earnings digests with beat/miss analysis before the open</div>
+      </div>
+      <div class="perk-row">
+        <div class="perk-icon">🏆</div>
+        <div class="perk-text"><strong>Premium Badge</strong> — Gold Premium badge on your community profile</div>
+      </div>
+
+      <hr class="payment-divider" />
+
+      <div id="auth-section">
+        <button class="btn-checkout" id="checkout-btn" onclick="startCheckout()" data-i18n="pay_subscribe">
+          Subscribe Now — $9/month
+        </button>
+        <div class="error-msg" id="error-msg"></div>
+        <div class="payment-note">🔒 Secure payment via Stripe · SSL encrypted</div>
+        <div class="cancel-notice"><a href="index.html">← Back to Moomoo Insights</a></div>
+      </div>
+
+      <div id="login-prompt-section" class="login-prompt" style="display:none;">
+        <a href="login.html?tab=register">Create an account</a> or <a href="login.html">log in</a> to subscribe.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="i18n.js"></script>
+<script src="app.js"></script>
+<script>
+  const params = new URLSearchParams(location.search);
+  if (params.get("cancelled") === "1") {
+    document.getElementById("cancelled-banner").style.display = "block";
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    if (!getToken()) {
+      document.getElementById("auth-section").style.display = "none";
+      document.getElementById("login-prompt-section").style.display = "block";
+    }
+    const user = getUser();
+    if (user?.is_premium) {
+      document.getElementById("checkout-btn").textContent = t("pay_already");
+      document.getElementById("checkout-btn").disabled = true;
+    }
+  });
+
+  async function startCheckout() {
+    const btn = document.getElementById("checkout-btn");
+    const err = document.getElementById("error-msg");
+    btn.disabled = true;
+    btn.textContent = t("pay_redirecting");
+    err.style.display = "none";
+    try {
+      const data = await apiPost("/api/stripe/create-checkout-session", {});
+      window.location.href = data.url;
+    } catch (e) {
+      err.textContent = e.message || "Something went wrong. Please try again.";
+      err.style.display = "block";
+      btn.disabled = false;
+      btn.textContent = t("pay_subscribe");
+    }
+  }
+</script>
+</body>
+</html>
