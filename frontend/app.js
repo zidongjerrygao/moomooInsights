@@ -108,7 +108,26 @@ function renderNav() {
       `<a href="${l.href}" class="${page === l.href ? "active" : ""}">${tFn(l.key)}</a>`
     ).join("");
     if (user?.is_admin) navLinks.innerHTML += `<a href="admin.html" class="${page === "admin.html" ? "active" : ""}">${tFn("nav_admin")}</a>`;
+
+    // Close mobile nav when a link is clicked
+    navLinks.querySelectorAll("a").forEach(a => a.addEventListener("click", () => navLinks.classList.remove("open")));
   }
+
+  // Hamburger button for mobile
+  if (!document.getElementById("nav-hamburger")) {
+    const hamburger = document.createElement("button");
+    hamburger.id = "nav-hamburger";
+    hamburger.className = "nav-hamburger";
+    hamburger.innerHTML = "&#9776;";
+    hamburger.setAttribute("aria-label", "Menu");
+    hamburger.addEventListener("click", e => {
+      e.stopPropagation();
+      document.getElementById("nav-links")?.classList.toggle("open");
+    });
+    document.querySelector(".nav-inner")?.appendChild(hamburger);
+  }
+
+  document.addEventListener("click", () => document.getElementById("nav-links")?.classList.remove("open"), { once: false });
 
   const langLabel = typeof getLangLabel === "function" ? getLangLabel(typeof getLang === "function" ? getLang() : "en") : "EN";
   const langSwitcher = `
