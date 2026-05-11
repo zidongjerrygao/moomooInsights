@@ -128,9 +128,17 @@ def _fetch_yahoo_quote(ticker: str) -> dict:
             r = requests.get(url, headers=_YAHOO_HEADERS, timeout=10)
             r.raise_for_status()
             data = r.json()
-            meta = data["chart"]["result"][0]["meta"]
+            result = data["chart"]["result"][0]
+            meta = result["meta"]
             price = float(meta["regularMarketPrice"])
-            prev  = float(meta.get("chartPreviousClose") or meta.get("previousClose") or price)
+            # Use closes[0] from the 2-day window: that's the previous session's final close.
+            # chartPreviousClose is the close before the window starts — one day too far back.
+            closes = result.get("indicators", {}).get("quote", [{}])[0].get("close", [])
+            closes = [c for c in closes if c is not None]
+            if len(closes) >= 2:
+                prev = float(closes[0])
+            else:
+                prev = float(meta.get("chartPreviousClose") or meta.get("previousClose") or price)
             chg   = round(price - prev, 4)
             chg_pct = round((chg / prev * 100) if prev else 0.0, 2)
             return {"price": price, "change": chg, "change_pct": chg_pct}
