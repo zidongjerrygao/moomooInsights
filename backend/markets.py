@@ -1,9 +1,10 @@
 """
 Live market data:
-  - Index data (SPX, NDX, DJI) via Yahoo Finance REST API
-  - US top movers via Futu OpenD (falls back to static snapshot if OpenD not running)
+  - Primary: Futu OpenD (localhost:11111) — indices + top movers with real-time volume
+  - Fallback: Yahoo Finance REST API when OpenD is not running
 """
 import logging
+import socket
 import requests
 from datetime import datetime, timedelta
 from typing import Optional
@@ -14,41 +15,128 @@ _cache: dict = {}
 _cache_time: Optional[datetime] = None
 CACHE_TTL = timedelta(seconds=55)
 
+FUTU_HOST = "127.0.0.1"
+FUTU_PORT = 11111
+
 YAHOO_INDICES = {
     "SPX": {"ticker": "^GSPC", "name": "S&P 500"},
     "NDX": {"ticker": "^NDX",  "name": "Nasdaq 100"},
     "DJI": {"ticker": "^DJI",  "name": "Dow Jones"},
 }
 
+FUTU_INDICES = [
+    {"code": "US.SPX", "symbol": "SPX", "name": "S&P 500"},
+    {"code": "US.NDX", "symbol": "NDX", "name": "Nasdaq 100"},
+    {"code": "US.DJI", "symbol": "DJI", "name": "Dow Jones"},
+]
+
 _YAHOO_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
 }
 
-YAHOO_MOVERS = [
-    {"ticker": "AAPL",  "yahoo": "AAPL",  "name": "Apple"},
-    {"ticker": "MSFT",  "yahoo": "MSFT",  "name": "Microsoft"},
-    {"ticker": "NVDA",  "yahoo": "NVDA",  "name": "NVIDIA"},
-    {"ticker": "AMZN",  "yahoo": "AMZN",  "name": "Amazon"},
-    {"ticker": "GOOGL", "yahoo": "GOOGL", "name": "Alphabet"},
-    {"ticker": "META",  "yahoo": "META",  "name": "Meta Platforms"},
-    {"ticker": "TSLA",  "yahoo": "TSLA",  "name": "Tesla"},
-    {"ticker": "LLY",   "yahoo": "LLY",   "name": "Eli Lilly"},
-    {"ticker": "AVGO",  "yahoo": "AVGO",  "name": "Broadcom"},
-    {"ticker": "BRK.B", "yahoo": "BRK-B", "name": "Berkshire Hathaway B"},
+MOVERS = [
+    {"ticker": "AAPL",  "futu": "US.AAPL",  "yahoo": "AAPL",  "name": "Apple"},
+    {"ticker": "MSFT",  "futu": "US.MSFT",  "yahoo": "MSFT",  "name": "Microsoft"},
+    {"ticker": "NVDA",  "futu": "US.NVDA",  "yahoo": "NVDA",  "name": "NVIDIA"},
+    {"ticker": "AMZN",  "futu": "US.AMZN",  "yahoo": "AMZN",  "name": "Amazon"},
+    {"ticker": "GOOGL", "futu": "US.GOOGL", "yahoo": "GOOGL", "name": "Alphabet"},
+    {"ticker": "META",  "futu": "US.META",  "yahoo": "META",  "name": "Meta Platforms"},
+    {"ticker": "TSLA",  "futu": "US.TSLA",  "yahoo": "TSLA",  "name": "Tesla"},
+    {"ticker": "LLY",   "futu": "US.LLY",   "yahoo": "LLY",   "name": "Eli Lilly"},
+    {"ticker": "AVGO",  "futu": "US.AVGO",  "yahoo": "AVGO",  "name": "Broadcom"},
+    {"ticker": "BRK.B", "futu": "US.BRK-B", "yahoo": "BRK-B", "name": "Berkshire Hathaway B"},
 ]
 
+# Keep legacy alias used elsewhere
+YAHOO_MOVERS = MOVERS
+
+
+# ── OpenD helpers ─────────────────────────────────────────────────────────────
+
+def _is_opend_running(timeout: float = 1.0) -> bool:
+    """TCP probe — avoids SDK hang when OpenD is not running."""
+    try:
+        with socket.create_connection((FUTU_HOST, FUTU_PORT), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
+def _futu_snapshot(codes: list):
+    """Return a pandas DataFrame from OpenD get_market_snapshot. Raises on error."""
+    import futu
+    ctx = futu.OpenQuoteContext(host=FUTU_HOST, port=FUTU_PORT)
+    try:
+        ret, data = ctx.get_market_snapshot(codes)
+        if ret != futu.RET_OK:
+            raise RuntimeError(f"OpenD: {data}")
+        return data
+    finally:
+        ctx.close()
+
+
+def _fetch_indices_futu() -> list:
+    codes = [f["code"] for f in FUTU_INDICES]
+    df = _futu_snapshot(codes)
+    code_map = {f["code"]: f for f in FUTU_INDICES}
+    indices = []
+    for _, row in df.iterrows():
+        meta = code_map.get(row["code"])
+        if not meta:
+            continue
+        price = float(row["last_price"])
+        prev  = float(row["prev_close_price"])
+        chg   = round(price - prev, 4)
+        chg_pct = round(float(row["change_rate"]), 2)
+        indices.append({
+            "symbol": meta["symbol"],
+            "name": meta["name"],
+            "price": price,
+            "change": chg,
+            "change_pct": chg_pct,
+        })
+    return indices
+
+
+def _fetch_movers_futu() -> list:
+    codes = [m["futu"] for m in MOVERS]
+    df = _futu_snapshot(codes)
+    code_map = {m["futu"]: m for m in MOVERS}
+    movers = []
+    for _, row in df.iterrows():
+        meta = code_map.get(row["code"])
+        if not meta:
+            continue
+        movers.append({
+            "ticker": meta["ticker"],
+            "name": meta["name"],
+            "price": float(row["last_price"]),
+            "change_pct": round(float(row["change_rate"]), 2),
+            "volume": int(row.get("volume", 0) or 0),
+        })
+    movers.sort(key=lambda x: abs(x["change_pct"]), reverse=True)
+    return movers
+
+
+# ── Yahoo Finance helpers ─────────────────────────────────────────────────────
 
 def _fetch_yahoo_quote(ticker: str) -> dict:
-    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}?interval=1d&range=2d"
-    r = requests.get(url, headers=_YAHOO_HEADERS, timeout=10)
-    r.raise_for_status()
-    data = r.json()
-    meta = data["chart"]["result"][0]["meta"]
-    price = float(meta["regularMarketPrice"])
-    prev  = float(meta.get("chartPreviousClose") or meta.get("previousClose") or price)
-    chg   = round(price - prev, 4)
-    chg_pct = round((chg / prev * 100) if prev else 0.0, 2)
-    return {"price": price, "change": chg, "change_pct": chg_pct}
+    last_exc = None
+    for host in ("query1", "query2"):
+        try:
+            url = f"https://{host}.finance.yahoo.com/v8/finance/chart/{ticker}?interval=1d&range=2d"
+            r = requests.get(url, headers=_YAHOO_HEADERS, timeout=10)
+            r.raise_for_status()
+            data = r.json()
+            meta = data["chart"]["result"][0]["meta"]
+            price = float(meta["regularMarketPrice"])
+            prev  = float(meta.get("chartPreviousClose") or meta.get("previousClose") or price)
+            chg   = round(price - prev, 4)
+            chg_pct = round((chg / prev * 100) if prev else 0.0, 2)
+            return {"price": price, "change": chg, "change_pct": chg_pct}
+        except Exception as exc:
+            last_exc = exc
+    raise last_exc
 
 
 def _fetch_indices_yahoo() -> list:
@@ -56,20 +144,17 @@ def _fetch_indices_yahoo() -> list:
     for sym, meta in YAHOO_INDICES.items():
         try:
             q = _fetch_yahoo_quote(meta["ticker"])
-            indices.append({
-                "symbol": sym,
-                "name": meta["name"],
-                **q,
-            })
+            indices.append({"symbol": sym, "name": meta["name"], **q})
         except Exception as exc:
             logger.warning("Yahoo Finance failed for %s: %s", sym, exc)
-            indices.append({"symbol": sym, "name": meta["name"], "price": 0.0, "change": 0.0, "change_pct": 0.0})
+            indices.append({"symbol": sym, "name": meta["name"],
+                            "price": 0.0, "change": 0.0, "change_pct": 0.0})
     return indices
 
 
 def _fetch_movers_yahoo() -> list:
     movers = []
-    for m in YAHOO_MOVERS:
+    for m in MOVERS:
         try:
             q = _fetch_yahoo_quote(m["yahoo"])
             movers.append({
@@ -85,20 +170,34 @@ def _fetch_movers_yahoo() -> list:
     return movers
 
 
+# ── Public API ────────────────────────────────────────────────────────────────
+
 def get_market_data() -> dict:
     global _cache, _cache_time
     if _cache_time and datetime.utcnow() - _cache_time < CACHE_TTL:
         return _cache
 
-    indices = _fetch_indices_yahoo()
+    indices, movers, source = None, None, "yahoo"
 
-    try:
-        movers = _fetch_movers_yahoo()
-        source = "yahoo"
-    except Exception as exc:
-        logger.warning("Yahoo movers failed (%s)", exc)
-        movers = []
-        source = "unavailable"
+    if _is_opend_running():
+        try:
+            indices = _fetch_indices_futu()
+            movers  = _fetch_movers_futu()
+            source  = "futu"
+            logger.info("Market data from FUTU OpenD")
+        except Exception as exc:
+            logger.warning("OpenD connected but fetch failed (%s), falling back to Yahoo", exc)
+            indices, movers = None, None
+
+    if indices is None:
+        indices = _fetch_indices_yahoo()
+
+    if movers is None:
+        try:
+            movers = _fetch_movers_yahoo()
+        except Exception as exc:
+            logger.warning("Yahoo movers failed (%s)", exc)
+            movers = []
 
     result = {
         "indices": indices,

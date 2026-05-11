@@ -60,9 +60,9 @@ const TRANSLATIONS = {
     mkt_next30:            "Next 30d",
     mkt_all_upcoming:      "All upcoming",
     mkt_loading:           "Loading…",
-    mkt_no_movers:         "No movers data (Futu OpenD required)",
+    mkt_no_movers:         "No movers data available",
     mkt_no_earnings:       "No upcoming earnings in this range",
-    mkt_openD_note:        "⚡ Futu OpenD is not running — showing cached snapshot. Start OpenD for live data.",
+    mkt_openD_note:        "",
     mkt_view_markets:      "View full markets →",
 
     // Strategy page
@@ -270,9 +270,9 @@ const TRANSLATIONS = {
     mkt_next30:            "未来30天",
     mkt_all_upcoming:      "全部即将发布",
     mkt_loading:           "加载中…",
-    mkt_no_movers:         "暂无涨跌幅数据（需要Futu OpenD）",
+    mkt_no_movers:         "暂无涨跌幅数据",
     mkt_no_earnings:       "此范围内暂无即将发布的财报",
-    mkt_openD_note:        "⚡ Futu OpenD未运行 — 显示缓存快照。请启动OpenD以获取实时数据。",
+    mkt_openD_note:        "",
     mkt_view_markets:      "查看完整市场 →",
 
     // Strategy
@@ -480,9 +480,9 @@ const TRANSLATIONS = {
     mkt_next30:            "未來30日",
     mkt_all_upcoming:      "全部即將公佈",
     mkt_loading:           "載入中…",
-    mkt_no_movers:         "暫無升跌幅數據（需要Futu OpenD）",
+    mkt_no_movers:         "暫無升跌幅數據",
     mkt_no_earnings:       "此範圍內暫無即將公佈的業績",
-    mkt_openD_note:        "⚡ Futu OpenD未運行 — 顯示快取快照。請啟動OpenD以獲取實時數據。",
+    mkt_openD_note:        "",
     mkt_view_markets:      "查看完整市場 →",
 
     // Strategy

@@ -42,9 +42,6 @@
     <span class="source-tag" id="data-source" data-i18n="mkt_loading">Loading…</span>
   </div>
 
-  <div id="openD-note" class="openD-note" style="display:none;" data-i18n="mkt_openD_note">
-    ⚡ Futu OpenD is not running — showing cached snapshot. Start OpenD for live data.
-  </div>
 
   <!-- Index cards -->
   <div class="grid-4" id="index-cards">
@@ -117,6 +114,7 @@
 <footer class="footer" data-i18n="footer_copy">© 2026 Moomoo Insights</footer>
 
 <script src="i18n.js"></script>
+<script src="capacitor.js"></script>
 <script src="app.js"></script>
 <script>
 async function loadMarkets() {
@@ -125,8 +123,8 @@ async function loadMarkets() {
 
     // Source tag
     const srcEl = document.getElementById("data-source");
-    srcEl.textContent = `Source: ${data.source === "futu" ? "Futu OpenD (live)" : "Fallback snapshot"} · ${new Date(data.as_of).toLocaleTimeString()}`;
-    document.getElementById("openD-note").style.display = data.source !== "futu" ? "block" : "none";
+    const srcLabel = data.source === "futu" ? "Futu OpenD (live)" : data.source === "yahoo" ? "Yahoo Finance" : "Cached snapshot";
+    srcEl.textContent = `Source: ${srcLabel} · ${new Date(data.as_of).toLocaleTimeString()}`;
 
     // Index cards
     const indexOrder = ["SPX","NDX","DJI"];
