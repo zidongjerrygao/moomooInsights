@@ -96,14 +96,11 @@
             <th data-i18n="mkt_date">Date</th>
             <th data-i18n="mkt_ticker">Ticker</th>
             <th data-i18n="mkt_company">Company</th>
-            <th data-i18n="mkt_quarter">Quarter</th>
-            <th data-i18n="mkt_eps_beat">EPS Beat</th>
-            <th data-i18n="mkt_rev_beat">Rev Beat</th>
             <th data-i18n="mkt_sector">Sector</th>
           </tr>
         </thead>
         <tbody id="earnings-body">
-          <tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-muted);" data-i18n="mkt_loading">Loading…</td></tr>
+          <tr><td colspan="4" style="text-align:center;padding:24px;color:var(--text-muted);" data-i18n="mkt_loading">Loading…</td></tr>
         </tbody>
       </table>
     </div>
@@ -201,16 +198,13 @@ async function loadEarnings() {
     }
     const data = await apiGet(url);
     if (!data.length) {
-      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--text-muted);">${t("mkt_no_earnings")}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--text-muted);">${t("mkt_no_earnings")}</td></tr>`;
       return;
     }
     tbody.innerHTML = data.slice(0, 30).map(r => `<tr class="earnings-row">
       <td>${dayLabel(r.report_date)}</td>
       <td><strong>${r.ticker}</strong></td>
       <td>${r.name}</td>
-      <td style="color:var(--text-muted);font-size:12px;">${r.fiscal_quarter || "-"}</td>
-      <td>${beatPill(r.eps_surprise_pct)}</td>
-      <td>${beatPill(r.revenue_surprise_pct)}</td>
       <td><span class="tag">${r.sector || "-"}</span></td>
     </tr>`).join("");
   } catch {}
