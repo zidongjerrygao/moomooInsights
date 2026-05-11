@@ -177,32 +177,18 @@ def get_market_data() -> dict:
     if _cache_time and datetime.utcnow() - _cache_time < CACHE_TTL:
         return _cache
 
-    indices, movers, source = None, None, "yahoo"
+    indices = _fetch_indices_yahoo()
 
-    if _is_opend_running():
-        try:
-            indices = _fetch_indices_futu()
-            movers  = _fetch_movers_futu()
-            source  = "futu"
-            logger.info("Market data from FUTU OpenD")
-        except Exception as exc:
-            logger.warning("OpenD connected but fetch failed (%s), falling back to Yahoo", exc)
-            indices, movers = None, None
-
-    if indices is None:
-        indices = _fetch_indices_yahoo()
-
-    if movers is None:
-        try:
-            movers = _fetch_movers_yahoo()
-        except Exception as exc:
-            logger.warning("Yahoo movers failed (%s)", exc)
-            movers = []
+    try:
+        movers = _fetch_movers_yahoo()
+    except Exception as exc:
+        logger.warning("Yahoo movers failed (%s)", exc)
+        movers = []
 
     result = {
         "indices": indices,
         "movers": movers,
-        "source": source,
+        "source": "yahoo",
         "as_of": datetime.utcnow().isoformat(),
     }
     _cache = result
