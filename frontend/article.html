@@ -35,12 +35,13 @@
     .lang-edit-tab.active { color: var(--orange); border-bottom-color: var(--orange); }
     .lang-edit-pane { display: none; }
     .lang-edit-pane.active { display: block; }
-    .edit-content-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    .edit-preview-pane { background: #f9fafb; border: 1.5px solid var(--border); border-radius: 8px; padding: 16px; min-height: 200px; max-height: 420px; overflow-y: auto; font-size: 13px; }
-    .edit-preview-toggle { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
-    .edit-preview-toggle button { font-size: 11px; padding: 3px 10px; border-radius: 4px; border: 1px solid var(--border); background: white; cursor: pointer; color: var(--text-muted); transition: all 0.15s; }
-    .edit-preview-toggle button.active { background: var(--orange); color: white; border-color: var(--orange); }
-    @media (max-width: 900px) { .edit-content-grid { grid-template-columns: 1fr; } }
+    .edit-mode-tabs { display: flex; gap: 0; margin-bottom: 10px; border-bottom: 1px solid var(--border); }
+    .edit-mode-tab { padding: 7px 18px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; background: none; color: var(--text-muted); border-bottom: 2px solid transparent; transition: color 0.15s, border-color 0.15s; }
+    .edit-mode-tab.active { color: var(--orange); border-bottom-color: var(--orange); }
+    .edit-visual-pane { min-height: 400px; max-height: 600px; overflow-y: auto; padding: 20px; border: 1.5px solid var(--border); border-radius: 8px; background: white; cursor: text; outline: none; }
+    .edit-visual-pane:focus { border-color: var(--orange); }
+    .edit-source-pane { width: 100%; min-height: 400px; font-family: monospace; font-size: 12px; line-height: 1.6; padding: 12px; border: 1.5px solid var(--border); border-radius: 8px; resize: vertical; box-sizing: border-box; }
+    .edit-preview-pane { background: #f9fafb; border: 1.5px solid var(--border); border-radius: 8px; padding: 20px; min-height: 400px; max-height: 600px; overflow-y: auto; }
     .pdf-btn {
       display: inline-flex; align-items: center; gap: 6px;
       background: var(--orange); color: white; border: none;
@@ -116,15 +117,15 @@
         <textarea class="form-control" id="edit-excerpt" style="min-height:60px;"></textarea>
       </div>
       <div class="form-group">
-        <div class="edit-preview-toggle">
-          <label data-i18n="art_content_lbl" style="margin:0;">Content HTML</label>
-          <button id="preview-toggle-en" class="active" onclick="toggleEditPreview('en', this)">Source</button>
-          <button onclick="toggleEditPreview('en', this)">Preview</button>
+        <label style="margin-bottom:6px;display:block;">Content</label>
+        <div class="edit-mode-tabs">
+          <button class="edit-mode-tab active" onclick="setEditMode('en','visual',this)">&#9998; Visual</button>
+          <button class="edit-mode-tab" onclick="setEditMode('en','source',this)">&lt;/&gt; Source</button>
+          <button class="edit-mode-tab" onclick="setEditMode('en','preview',this)">&#128065; Preview</button>
         </div>
-        <div class="edit-content-grid">
-          <textarea class="form-control" id="edit-content" style="min-height:300px;font-family:monospace;font-size:12px;" oninput="refreshEditPreview('en')"></textarea>
-          <div class="edit-preview-pane article-content" id="edit-preview-en"></div>
-        </div>
+        <div id="edit-visual-en" class="edit-visual-pane article-content" contenteditable="true" spellcheck="false"></div>
+        <textarea class="form-control edit-source-pane" id="edit-content" style="display:none;"></textarea>
+        <div class="edit-preview-pane article-content" id="edit-preview-en" style="display:none;"></div>
       </div>
     </div>
     <div class="lang-edit-pane" id="pane-zh-cn">
@@ -137,15 +138,15 @@
         <textarea class="form-control" id="edit-excerpt-zh-cn" style="min-height:60px;"></textarea>
       </div>
       <div class="form-group">
-        <div class="edit-preview-toggle">
-          <label style="margin:0;">内容 HTML（简体中文）</label>
-          <button id="preview-toggle-zh-cn" class="active" onclick="toggleEditPreview('zh-cn', this)">Source</button>
-          <button onclick="toggleEditPreview('zh-cn', this)">Preview</button>
+        <label style="margin-bottom:6px;display:block;">内容（简体中文）</label>
+        <div class="edit-mode-tabs">
+          <button class="edit-mode-tab active" onclick="setEditMode('zh-cn','visual',this)">&#9998; Visual</button>
+          <button class="edit-mode-tab" onclick="setEditMode('zh-cn','source',this)">&lt;/&gt; Source</button>
+          <button class="edit-mode-tab" onclick="setEditMode('zh-cn','preview',this)">&#128065; Preview</button>
         </div>
-        <div class="edit-content-grid">
-          <textarea class="form-control" id="edit-content-zh-cn" style="min-height:300px;font-family:monospace;font-size:12px;" oninput="refreshEditPreview('zh-cn')"></textarea>
-          <div class="edit-preview-pane article-content" id="edit-preview-zh-cn"></div>
-        </div>
+        <div id="edit-visual-zh-cn" class="edit-visual-pane article-content" contenteditable="true" spellcheck="false"></div>
+        <textarea class="form-control edit-source-pane" id="edit-content-zh-cn" style="display:none;"></textarea>
+        <div class="edit-preview-pane article-content" id="edit-preview-zh-cn" style="display:none;"></div>
       </div>
     </div>
     <div class="lang-edit-pane" id="pane-zh-hk">
@@ -158,15 +159,15 @@
         <textarea class="form-control" id="edit-excerpt-zh-hk" style="min-height:60px;"></textarea>
       </div>
       <div class="form-group">
-        <div class="edit-preview-toggle">
-          <label style="margin:0;">內容 HTML（繁體中文）</label>
-          <button id="preview-toggle-zh-hk" class="active" onclick="toggleEditPreview('zh-hk', this)">Source</button>
-          <button onclick="toggleEditPreview('zh-hk', this)">Preview</button>
+        <label style="margin-bottom:6px;display:block;">內容（繁體中文）</label>
+        <div class="edit-mode-tabs">
+          <button class="edit-mode-tab active" onclick="setEditMode('zh-hk','visual',this)">&#9998; Visual</button>
+          <button class="edit-mode-tab" onclick="setEditMode('zh-hk','source',this)">&lt;/&gt; Source</button>
+          <button class="edit-mode-tab" onclick="setEditMode('zh-hk','preview',this)">&#128065; Preview</button>
         </div>
-        <div class="edit-content-grid">
-          <textarea class="form-control" id="edit-content-zh-hk" style="min-height:300px;font-family:monospace;font-size:12px;" oninput="refreshEditPreview('zh-hk')"></textarea>
-          <div class="edit-preview-pane article-content" id="edit-preview-zh-hk"></div>
-        </div>
+        <div id="edit-visual-zh-hk" class="edit-visual-pane article-content" contenteditable="true" spellcheck="false"></div>
+        <textarea class="form-control edit-source-pane" id="edit-content-zh-hk" style="display:none;"></textarea>
+        <div class="edit-preview-pane article-content" id="edit-preview-zh-hk" style="display:none;"></div>
       </div>
     </div>
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px;">
@@ -196,33 +197,42 @@ function switchEditLang(lang, el) {
   document.querySelectorAll(".lang-edit-pane").forEach(p => p.classList.remove("active"));
   el.classList.add("active");
   document.getElementById(`pane-${lang}`).classList.add("active");
-  refreshEditPreview(lang);
 }
 
-function refreshEditPreview(lang) {
-  const suffix = lang === "en" ? "" : `-${lang}`;
-  const src = document.getElementById(`edit-content${suffix}`)?.value || "";
-  const prev = document.getElementById(`edit-preview-${lang}`);
-  if (prev) prev.innerHTML = src;
-}
+const _editMode = { en: "visual", "zh-cn": "visual", "zh-hk": "visual" };
 
-function toggleEditPreview(lang, btn) {
+function setEditMode(lang, mode, btn) {
   const suffix = lang === "en" ? "" : `-${lang}`;
-  const ta   = document.getElementById(`edit-content${suffix}`);
-  const prev = document.getElementById(`edit-preview-${lang}`);
-  const grid = ta?.closest(".edit-content-grid");
-  const btns = btn.closest(".edit-preview-toggle").querySelectorAll("button");
-  btns.forEach(b => b.classList.remove("active"));
+  const visual = document.getElementById(`edit-visual-${lang}`);
+  const source = document.getElementById(`edit-content${suffix}`);
+  const preview = document.getElementById(`edit-preview-${lang}`);
+  const cur = _editMode[lang];
+
+  // Sync content from the leaving mode
+  if (cur === "visual" && visual) source.value = visual.innerHTML;
+  else if (cur === "source" && visual) visual.innerHTML = source.value;
+
+  // Update tab highlight
+  btn.closest(".edit-mode-tabs").querySelectorAll(".edit-mode-tab")
+    .forEach(b => b.classList.remove("active"));
   btn.classList.add("active");
-  const isSource = btn.textContent.trim() === "Source";
-  if (grid) {
-    grid.style.gridTemplateColumns = isSource ? "1fr 1fr" : "0 1fr";
-    if (ta) ta.style.display = isSource ? "" : "none";
+
+  // Show/hide panes
+  if (visual)  visual.style.display  = mode === "visual"  ? "" : "none";
+  if (source)  source.style.display  = mode === "source"  ? "" : "none";
+  if (preview) preview.style.display = mode === "preview" ? "" : "none";
+
+  if (mode === "preview" && preview) preview.innerHTML = source.value;
+  _editMode[lang] = mode;
+}
+
+function getEditContent(lang) {
+  const suffix = lang === "en" ? "" : `-${lang}`;
+  if (_editMode[lang] === "visual") {
+    const visual = document.getElementById(`edit-visual-${lang}`);
+    if (visual) return visual.innerHTML;
   }
-  if (prev) {
-    refreshEditPreview(lang);
-    prev.style.maxHeight = isSource ? "420px" : "600px";
-  }
+  return document.getElementById(`edit-content${suffix}`)?.value || "";
 }
 
 async function loadArticle() {
@@ -352,9 +362,24 @@ async function loadSidebarMarkets() {
 
 function openEditModal() {
   openModal("edit-modal");
-  refreshEditPreview("en");
-  refreshEditPreview("zh-cn");
-  refreshEditPreview("zh-hk");
+  // Load textarea values into visual editors and reset to visual mode
+  ["en", "zh-cn", "zh-hk"].forEach(lang => {
+    const suffix = lang === "en" ? "" : `-${lang}`;
+    const visual = document.getElementById(`edit-visual-${lang}`);
+    const source = document.getElementById(`edit-content${suffix}`);
+    const preview = document.getElementById(`edit-preview-${lang}`);
+    if (visual && source) {
+      visual.innerHTML = source.value;
+      visual.style.display = "";
+      source.style.display = "none";
+    }
+    if (preview) preview.style.display = "none";
+    _editMode[lang] = "visual";
+    // Reset tab buttons to Visual
+    const pane = document.getElementById(`pane-${lang}`);
+    if (pane) pane.querySelectorAll(".edit-mode-tab")
+      .forEach((b, i) => b.classList.toggle("active", i === 0));
+  });
 }
 
 async function saveEdit() {
@@ -363,13 +388,13 @@ async function saveEdit() {
     excerpt:             document.getElementById("edit-excerpt").value,
     category:            document.getElementById("edit-category").value,
     tags:                document.getElementById("edit-tags").value.split(",").map(s => s.trim()).filter(Boolean),
-    content_html:        document.getElementById("edit-content").value,
+    content_html:        getEditContent("en"),
     title_zh_cn:         document.getElementById("edit-title-zh-cn").value || null,
     excerpt_zh_cn:       document.getElementById("edit-excerpt-zh-cn").value || null,
-    content_html_zh_cn:  document.getElementById("edit-content-zh-cn").value || null,
+    content_html_zh_cn:  getEditContent("zh-cn") || null,
     title_zh_hk:         document.getElementById("edit-title-zh-hk").value || null,
     excerpt_zh_hk:       document.getElementById("edit-excerpt-zh-hk").value || null,
-    content_html_zh_hk:  document.getElementById("edit-content-zh-hk").value || null,
+    content_html_zh_hk:  getEditContent("zh-hk") || null,
   };
   try {
     await apiPut(`/api/articles/${articleId}`, payload);
