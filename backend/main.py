@@ -11,6 +11,8 @@ from pathlib import Path
 from typing import Optional, List
 
 import os
+from dotenv import load_dotenv
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 import stripe
 import anthropic as _anthropic
 

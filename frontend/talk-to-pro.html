@@ -243,13 +243,13 @@
     <div class="pro-avatar" id="pro-avatar">📊</div>
     <div class="pro-header-text">
       <h2 data-i18n="ttp_heading">Talk to Pro</h2>
-      <p><span class="pro-status"></span><span id="pro-subtitle">Moomoo Investment Research · Eye on the Market</span></p>
+      <p><span class="pro-status"></span><span id="pro-subtitle">Moomoo Investment Research</span></p>
     </div>
   </div>
 
   <div class="mode-toggle">
-    <button class="mode-btn active" id="mode-cembalest" onclick="setMode('cembalest',this)">📈 Eye on the Market</button>
-    <button class="mode-btn" id="mode-dbs" onclick="setMode('dbs',this)">🌏 Asia Strategy</button>
+    <button class="mode-btn active" id="mode-cembalest" onclick="setMode('cembalest',this)">📈 Wall Street Analyst</button>
+    <button class="mode-btn" id="mode-dbs" onclick="setMode('dbs',this)">🌏 Professional Strategist</button>
   </div>
 
   <div class="suggestion-chips" id="chips"></div>
@@ -294,7 +294,7 @@ const history = [];
 const MODES = {
   cembalest: {
     avatar: "📊",
-    subtitle: "Moomoo Investment Research · Eye on the Market",
+    subtitle: "Moomoo Investment Research",
     welcome: "Markets are rarely wrong about direction — only timing. Ask me about macro themes, asset allocation, sector dynamics, or anything you'd expect from a data-driven investment strategist. I'll give you precise, historically grounded analysis. No platitudes, no hedged non-answers.",
     chips: [
       "Fed policy outlook",
@@ -307,7 +307,7 @@ const MODES = {
   },
   dbs: {
     avatar: "🌏",
-    subtitle: "Moomoo Investment Strategy · Asia Barbell Framework",
+    subtitle: "Moomoo Investment Research",
     welcome: "Asia ex-Japan remains our primary conviction. The Barbell framework — growth assets paired with income anchors — is the lens I use to navigate every market cycle. Ask me about Asia positioning, the AI infrastructure buildout, credit spreads, or how to think about the US-China dynamic from an Asian investor's perspective.",
     chips: [
       "Asia ex-Japan — overweight case",
