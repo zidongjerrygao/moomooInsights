@@ -1,8 +1,12 @@
 import json
 import logging
 import re
+import smtplib
+import ssl
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timedelta
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from pathlib import Path
 from typing import Optional, List
 
@@ -20,8 +24,8 @@ from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 
 from models import (
-    init_db, get_db, User, Article, CommunityPost, Comment,
-    Company, EarningsRelease,
+    init_db, get_db, SessionLocal, User, Article, CommunityPost, Comment,
+    Company, EarningsRelease, EmailSubscriber, EmailSendLog,
 )
 from auth import (
     hash_password, verify_password, create_token,
@@ -578,6 +582,250 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
             u.is_premium = False
             db.commit()
     return {"received": True}
+
+
+# ── Email distribution ────────────────────────────────────────────────────────
+
+_SMTP_HOST     = os.getenv("SMTP_HOST", "")
+_SMTP_PORT     = int(os.getenv("SMTP_PORT", "587"))
+_SMTP_USER     = os.getenv("SMTP_USER", "")
+_SMTP_PASS     = os.getenv("SMTP_PASS", "")
+_EMAIL_FROM    = os.getenv("EMAIL_FROM", _SMTP_USER)
+_EMAIL_FROM_NAME = os.getenv("EMAIL_FROM_NAME", "Moomoo Insights")
+_SITE_URL      = os.getenv("SITE_URL", os.getenv("FRONTEND_URL", "https://moomooinsights-production.up.railway.app"))
+
+_BUNDLE_CATEGORIES = {
+    "daily":    ["Macro", "Equity", "Credit", "Market Brief"],
+    "strategy": ["Market Analysis", "Strategy"],
+}
+_BUNDLE_DAYS = {"daily": 2, "strategy": 7}
+_BUNDLE_LABELS = {
+    "daily":    "Daily Market Brief",
+    "strategy": "Strategy & In-Depth Research",
+}
+
+CATEGORY_EMOJI_MAP = {
+    "Macro": "🌍", "Equity": "📈", "Credit": "💳",
+    "Market Analysis": "🔬", "Strategy": "♟️",
+    "Earnings": "📊", "Market Brief": "📰",
+}
+
+
+def _build_email_html(bundle_type: str, articles: list, site_url: str) -> str:
+    label = _BUNDLE_LABELS.get(bundle_type, bundle_type)
+    today = datetime.utcnow().strftime("%B %-d, %Y") if os.name != "nt" else datetime.utcnow().strftime("%B %d, %Y")
+
+    cards = ""
+    for a in articles:
+        emoji = CATEGORY_EMOJI_MAP.get(a["category"], "📄")
+        excerpt = (a["excerpt"] or "")[:220]
+        if len(a["excerpt"] or "") > 220:
+            excerpt += "…"
+        link = f"{site_url}/article.html?id={a['id']}"
+        cards += f"""
+        <tr>
+          <td style="padding:0 0 20px 0;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;">
+              <tr>
+                <td style="background:linear-gradient(135deg,#1a1f3c 0%,#252b4a 100%);padding:14px 20px;">
+                  <table width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td>
+                        <span style="display:inline-block;background:#ff6900;color:#ffffff;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:3px 8px;border-radius:4px;">{a['category']}</span>
+                      </td>
+                      <td align="right" style="font-size:22px;">{emoji}</td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:20px 20px 8px 20px;">
+                  <p style="margin:0 0 10px 0;font-size:18px;font-weight:800;color:#1a1a1a;line-height:1.3;">{a['title']}</p>
+                  <p style="margin:0 0 16px 0;font-size:14px;color:#4b5563;line-height:1.6;">{excerpt}</p>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:0 20px 20px 20px;">
+                  <a href="{link}" style="display:inline-block;background:#ff6900;color:#ffffff;font-size:13px;font-weight:700;padding:9px 18px;border-radius:6px;text-decoration:none;letter-spacing:0.3px;">Read Full Article →</a>
+                  <span style="font-size:11px;color:#9ca3af;margin-left:12px;">{a.get('author','Moomoo Insights')} · {a.get('created_at','')[:10]}</span>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>"""
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>{label} — Moomoo Insights</title></head>
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;">
+  <tr><td align="center" style="padding:32px 16px;">
+    <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
+
+      <!-- Header -->
+      <tr><td style="background:linear-gradient(135deg,#1a1f3c 0%,#252b4a 100%);border-radius:14px 14px 0 0;padding:28px 32px;">
+        <table width="100%" cellpadding="0" cellspacing="0">
+          <tr>
+            <td>
+              <span style="font-size:22px;font-weight:900;color:#ffffff;letter-spacing:-0.5px;">moomoo</span><span style="font-size:22px;font-weight:900;color:#ff6900;">Insights</span>
+              <p style="margin:4px 0 0 0;font-size:12px;color:#64748b;letter-spacing:1px;text-transform:uppercase;">{label}</p>
+            </td>
+            <td align="right" valign="top">
+              <p style="margin:0;font-size:12px;color:#64748b;">{today}</p>
+            </td>
+          </tr>
+        </table>
+      </td></tr>
+
+      <!-- Intro strip -->
+      <tr><td style="background:#ff6900;padding:12px 32px;">
+        <p style="margin:0;font-size:13px;font-weight:700;color:#ffffff;">Your curated market intelligence — {len(articles)} article{'s' if len(articles) != 1 else ''} selected for you</p>
+      </td></tr>
+
+      <!-- Articles -->
+      <tr><td style="padding:24px 24px 8px 24px;">
+        <table width="100%" cellpadding="0" cellspacing="0">
+          {cards}
+        </table>
+      </td></tr>
+
+      <!-- CTA -->
+      <tr><td style="padding:0 24px 24px 24px;text-align:center;">
+        <a href="{site_url}" style="display:inline-block;border:2px solid #1a1f3c;color:#1a1f3c;font-size:13px;font-weight:700;padding:10px 24px;border-radius:8px;text-decoration:none;">View All Articles on Moomoo Insights →</a>
+      </td></tr>
+
+      <!-- Footer -->
+      <tr><td style="background:#1a1f3c;border-radius:0 0 14px 14px;padding:20px 32px;text-align:center;">
+        <p style="margin:0 0 6px 0;font-size:12px;color:#475569;">© 2026 Moomoo Insights · Exclusive Wealth Intelligence</p>
+        <p style="margin:0;font-size:11px;color:#334155;line-height:1.5;">This email is for informational purposes only and does not constitute investment advice. Past performance is not indicative of future results.</p>
+      </td></tr>
+
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>"""
+
+
+def _send_email(to_addr: str, subject: str, html: str) -> None:
+    if not _SMTP_HOST or not _SMTP_USER or not _SMTP_PASS:
+        raise RuntimeError("SMTP not configured (set SMTP_HOST, SMTP_USER, SMTP_PASS env vars)")
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"] = f"{_EMAIL_FROM_NAME} <{_EMAIL_FROM}>"
+    msg["To"] = to_addr
+    msg.attach(MIMEText(html, "html"))
+    ctx = ssl.create_default_context()
+    with smtplib.SMTP(_SMTP_HOST, _SMTP_PORT) as srv:
+        srv.ehlo()
+        srv.starttls(context=ctx)
+        srv.login(_SMTP_USER, _SMTP_PASS)
+        srv.sendmail(_EMAIL_FROM, to_addr, msg.as_string())
+
+
+class SubscriberIn(BaseModel):
+    email: str
+    name: Optional[str] = None
+    bundles: Optional[List[str]] = ["daily", "strategy"]
+
+
+class SendBundleIn(BaseModel):
+    bundle_type: str  # "daily" or "strategy"
+
+
+@app.get("/api/admin/subscribers")
+def list_subscribers(db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    subs = db.query(EmailSubscriber).order_by(EmailSubscriber.created_at.desc()).all()
+    return [{"id": s.id, "email": s.email, "name": s.name, "bundles": s.bundles or [], "active": s.active, "created_at": s.created_at.isoformat()} for s in subs]
+
+
+@app.post("/api/admin/subscribers", status_code=201)
+def add_subscriber(payload: SubscriberIn, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    existing = db.query(EmailSubscriber).filter(EmailSubscriber.email == payload.email.lower()).first()
+    if existing:
+        existing.name = payload.name or existing.name
+        existing.bundles = payload.bundles
+        existing.active = True
+        db.commit()
+        db.refresh(existing)
+        return {"id": existing.id, "email": existing.email, "name": existing.name, "bundles": existing.bundles, "active": existing.active}
+    s = EmailSubscriber(email=payload.email.lower(), name=payload.name, bundles=payload.bundles or ["daily", "strategy"])
+    db.add(s)
+    db.commit()
+    db.refresh(s)
+    return {"id": s.id, "email": s.email, "name": s.name, "bundles": s.bundles, "active": s.active}
+
+
+@app.delete("/api/admin/subscribers/{sub_id}", status_code=204)
+def remove_subscriber(sub_id: int, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    s = db.query(EmailSubscriber).filter(EmailSubscriber.id == sub_id).first()
+    if not s:
+        raise HTTPException(404, "Subscriber not found")
+    db.delete(s)
+    db.commit()
+
+
+@app.post("/api/admin/email/send")
+def send_bundle(payload: SendBundleIn, background_tasks: BackgroundTasks, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    bt = payload.bundle_type.lower()
+    if bt not in _BUNDLE_CATEGORIES:
+        raise HTTPException(400, f"bundle_type must be one of: {list(_BUNDLE_CATEGORIES)}")
+
+    cats = _BUNDLE_CATEGORIES[bt]
+    days = _BUNDLE_DAYS[bt]
+    cutoff = datetime.utcnow() - timedelta(days=days)
+    articles = (
+        db.query(Article)
+        .filter(Article.published == True, Article.category.in_(cats), Article.created_at >= cutoff)
+        .order_by(Article.created_at.desc())
+        .limit(8)
+        .all()
+    )
+    if not articles:
+        raise HTTPException(404, f"No articles found for bundle '{bt}' in the last {days} days")
+
+    all_active = db.query(EmailSubscriber).filter(EmailSubscriber.active == True).all()
+    subscribers = [s for s in all_active if bt in (s.bundles or [])]
+    if not subscribers:
+        raise HTTPException(404, "No active subscribers for this bundle")
+
+    art_dicts = [_article_dict(a) for a in articles]
+    label = _BUNDLE_LABELS[bt]
+    subject = f"{label} — {datetime.utcnow().strftime('%b %d, %Y')} | Moomoo Insights"
+    html = _build_email_html(bt, art_dicts, _SITE_URL)
+
+    log = EmailSendLog(
+        bundle_type=bt, subject=subject,
+        recipients_count=len(subscribers), articles_count=len(articles),
+    )
+    db.add(log)
+    db.commit()
+    db.refresh(log)
+    log_id = log.id
+
+    def _dispatch():
+        errors = []
+        for sub in subscribers:
+            try:
+                _send_email(sub.email, subject, html)
+            except Exception as exc:
+                errors.append(f"{sub.email}: {exc}")
+        with SessionLocal() as s2:
+            entry = s2.query(EmailSendLog).filter(EmailSendLog.id == log_id).first()
+            if entry:
+                entry.status = "error" if errors else "ok"
+                entry.error = "\n".join(errors) if errors else None
+                s2.commit()
+
+    background_tasks.add_task(_dispatch)
+    return {"status": "sending", "bundle": bt, "recipients": len(subscribers), "articles": len(articles), "subject": subject}
+
+
+@app.get("/api/admin/email/logs")
+def list_send_logs(db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    logs = db.query(EmailSendLog).order_by(EmailSendLog.sent_at.desc()).limit(20).all()
+    return [{"id": l.id, "bundle_type": l.bundle_type, "subject": l.subject, "recipients_count": l.recipients_count, "articles_count": l.articles_count, "sent_at": l.sent_at.isoformat(), "status": l.status, "error": l.error} for l in logs]
 
 
 # ── Talk to Pro — Cembalest-style streaming chat ──────────────────────────────

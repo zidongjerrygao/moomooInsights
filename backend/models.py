@@ -113,6 +113,28 @@ class EarningsRelease(Base):
     company = relationship("Company", back_populates="releases")
 
 
+class EmailSubscriber(Base):
+    __tablename__ = "email_subscribers"
+    id = Column(Integer, primary_key=True)
+    email = Column(String, unique=True, nullable=False)
+    name = Column(String)
+    bundles = Column(JSON, default=list)  # ["daily", "strategy"]
+    active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class EmailSendLog(Base):
+    __tablename__ = "email_send_logs"
+    id = Column(Integer, primary_key=True)
+    bundle_type = Column(String, nullable=False)
+    subject = Column(String)
+    recipients_count = Column(Integer, default=0)
+    articles_count = Column(Integer, default=0)
+    sent_at = Column(DateTime, default=datetime.utcnow)
+    status = Column(String, default="ok")
+    error = Column(Text)
+
+
 def init_db():
     Base.metadata.create_all(bind=engine)
     # Safe migration: add reading_time_minutes if missing

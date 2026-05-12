@@ -50,6 +50,7 @@
       <div class="admin-tab active" onclick="switchTab('articles')">Articles</div>
       <div class="admin-tab" onclick="switchTab('community')">Community</div>
       <div class="admin-tab" onclick="switchTab('earnings')">Earnings</div>
+      <div class="admin-tab" onclick="switchTab('email')">Email</div>
     </div>
 
     <!-- Articles Tab -->
@@ -145,6 +146,69 @@
       <div id="community-list"><div class="loading-center"><div class="spinner"></div></div></div>
     </div>
 
+    <!-- Email Tab -->
+    <div class="admin-panel" id="tab-email">
+
+      <!-- Send Bundles -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:28px;">
+        <div class="card card-pad">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+            <div style="width:40px;height:40px;background:var(--navy);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;">📰</div>
+            <div>
+              <div style="font-weight:800;font-size:15px;">Daily Market Brief</div>
+              <div style="font-size:12px;color:var(--text-muted);">Macro · Equity · Credit · Market Brief (last 48h)</div>
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="sendBundle('daily')" style="width:100%;">Send to Subscribers →</button>
+        </div>
+        <div class="card card-pad">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+            <div style="width:40px;height:40px;background:var(--navy);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;">🔬</div>
+            <div>
+              <div style="font-weight:800;font-size:15px;">Strategy &amp; Research</div>
+              <div style="font-size:12px;color:var(--text-muted);">Market Analysis · Strategy (last 7 days)</div>
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="sendBundle('strategy')" style="width:100%;">Send to Subscribers →</button>
+        </div>
+      </div>
+
+      <!-- Subscriber Management -->
+      <div class="card card-pad" style="margin-bottom:24px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+          <h3 style="font-size:16px;font-weight:800;margin:0;">Subscriber List</h3>
+          <button class="btn btn-primary btn-sm" onclick="toggleAddSub()">+ Add Subscriber</button>
+        </div>
+
+        <div id="add-sub-form" style="display:none;background:#f9fafb;border-radius:8px;padding:16px;margin-bottom:16px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+            <input class="form-control" id="sub-email" placeholder="Email address" type="email" />
+            <input class="form-control" id="sub-name" placeholder="Name (optional)" />
+          </div>
+          <div style="display:flex;gap:16px;align-items:center;margin-bottom:12px;">
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
+              <input type="checkbox" id="sub-daily" checked /> Daily Market Brief
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
+              <input type="checkbox" id="sub-strategy" checked /> Strategy &amp; Research
+            </label>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-primary btn-sm" onclick="addSubscriber()">Add Subscriber</button>
+            <button class="btn btn-ghost btn-sm" onclick="toggleAddSub()">Cancel</button>
+          </div>
+        </div>
+
+        <div id="subscriber-list"><div class="loading-center"><div class="spinner"></div></div></div>
+      </div>
+
+      <!-- Send History -->
+      <div class="card card-pad">
+        <h3 style="font-size:16px;font-weight:800;margin-bottom:16px;">Send History</h3>
+        <div id="send-logs"><div class="loading-center"><div class="spinner"></div></div></div>
+      </div>
+    </div>
+
     <!-- Earnings Tab -->
     <div class="admin-panel" id="tab-earnings">
       <div class="card">
@@ -170,19 +234,19 @@
 
 <footer class="footer">© 2026 Moomoo Insights</footer>
 
+<script src="capacitor.js"></script>
 <script src="app.js"></script>
 <script>
 let editingId = null;
 
 function switchTab(name) {
-  document.querySelectorAll(".admin-tab").forEach((t, i) => {
-    const names = ["articles", "community", "earnings"];
-    t.classList.toggle("active", names[i] === name);
-  });
+  const names = ["articles", "community", "earnings", "email"];
+  document.querySelectorAll(".admin-tab").forEach((t, i) => t.classList.toggle("active", names[i] === name));
   document.querySelectorAll(".admin-panel").forEach(p => p.classList.remove("active"));
   document.getElementById(`tab-${name}`).classList.add("active");
   if (name === "community") loadCommunityAdmin();
   if (name === "earnings") loadEarningsAdmin();
+  if (name === "email") loadEmailTab();
 }
 
 async function init() {
@@ -345,6 +409,113 @@ function generateMoomoo() {
   const aiStatus = document.getElementById("ai-status");
   aiStatus.textContent = `Run: /moomoo-earnings write Moomoo commentary for ${ticker.toUpperCase()} — then paste the result into the content box above.`;
   aiStatus.style.color = "#1a6b3c";
+}
+
+// ── Email tab ─────────────────────────────────────────────────────────────────
+async function loadEmailTab() {
+  loadSubscriberList();
+  loadSendLogs();
+}
+
+async function loadSubscriberList() {
+  try {
+    const subs = await apiGet("/api/admin/subscribers");
+    const el = document.getElementById("subscriber-list");
+    if (!subs.length) {
+      el.innerHTML = `<div class="empty-state" style="padding:20px 0;"><div class="icon" style="font-size:32px;">✉️</div><p>No subscribers yet. Add one above.</p></div>`;
+      return;
+    }
+    el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <thead><tr style="border-bottom:2px solid var(--border);">
+        <th style="text-align:left;padding:8px 12px;color:var(--text-muted);font-size:11px;text-transform:uppercase;">Email</th>
+        <th style="text-align:left;padding:8px 12px;color:var(--text-muted);font-size:11px;text-transform:uppercase;">Name</th>
+        <th style="text-align:left;padding:8px 12px;color:var(--text-muted);font-size:11px;text-transform:uppercase;">Bundles</th>
+        <th style="padding:8px 12px;"></th>
+      </tr></thead>
+      <tbody>${subs.map(s => `<tr style="border-bottom:1px solid var(--border);">
+        <td style="padding:10px 12px;font-weight:600;">${s.email}</td>
+        <td style="padding:10px 12px;color:var(--text-muted);">${s.name || "—"}</td>
+        <td style="padding:10px 12px;">${(s.bundles||[]).map(b => `<span style="background:#fff7ed;color:#c2410c;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;margin-right:4px;">${b}</span>`).join("")}</td>
+        <td style="padding:10px 12px;text-align:right;"><button class="btn btn-danger btn-sm" onclick="removeSubscriber(${s.id})">Remove</button></td>
+      </tr>`).join("")}</tbody>
+    </table>`;
+  } catch (e) {
+    document.getElementById("subscriber-list").innerHTML = `<p style="color:red;">${e.message}</p>`;
+  }
+}
+
+function toggleAddSub() {
+  const f = document.getElementById("add-sub-form");
+  f.style.display = f.style.display === "none" ? "block" : "none";
+}
+
+async function addSubscriber() {
+  const email = document.getElementById("sub-email").value.trim();
+  const name  = document.getElementById("sub-name").value.trim();
+  const daily    = document.getElementById("sub-daily").checked;
+  const strategy = document.getElementById("sub-strategy").checked;
+  if (!email) { toast("Email is required", "error"); return; }
+  const bundles = [];
+  if (daily) bundles.push("daily");
+  if (strategy) bundles.push("strategy");
+  try {
+    await apiPost("/api/admin/subscribers", { email, name: name || null, bundles });
+    toast("Subscriber added!", "success");
+    document.getElementById("sub-email").value = "";
+    document.getElementById("sub-name").value = "";
+    document.getElementById("add-sub-form").style.display = "none";
+    loadSubscriberList();
+  } catch (e) { toast(e.message, "error"); }
+}
+
+async function removeSubscriber(id) {
+  if (!confirm("Remove this subscriber?")) return;
+  try {
+    await apiDelete(`/api/admin/subscribers/${id}`);
+    toast("Removed", "success");
+    loadSubscriberList();
+  } catch (e) { toast(e.message, "error"); }
+}
+
+async function sendBundle(type) {
+  const label = type === "daily" ? "Daily Market Brief" : "Strategy & Research";
+  if (!confirm(`Send ${label} bundle to all active subscribers?`)) return;
+  try {
+    const r = await apiPost("/api/admin/email/send", { bundle_type: type });
+    toast(`Sending "${r.subject}" to ${r.recipients} subscribers (${r.articles} articles)`, "success");
+    setTimeout(loadSendLogs, 2000);
+  } catch (e) { toast(e.message, "error"); }
+}
+
+async function loadSendLogs() {
+  try {
+    const logs = await apiGet("/api/admin/email/logs");
+    const el = document.getElementById("send-logs");
+    if (!logs.length) {
+      el.innerHTML = `<p style="color:var(--text-muted);font-size:13px;">No emails sent yet.</p>`;
+      return;
+    }
+    el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <thead><tr style="border-bottom:2px solid var(--border);">
+        <th style="text-align:left;padding:8px 12px;color:var(--text-muted);font-size:11px;text-transform:uppercase;">Bundle</th>
+        <th style="text-align:left;padding:8px 12px;color:var(--text-muted);font-size:11px;text-transform:uppercase;">Subject</th>
+        <th style="text-align:right;padding:8px 12px;color:var(--text-muted);font-size:11px;text-transform:uppercase;">Sent To</th>
+        <th style="text-align:right;padding:8px 12px;color:var(--text-muted);font-size:11px;text-transform:uppercase;">Articles</th>
+        <th style="text-align:left;padding:8px 12px;color:var(--text-muted);font-size:11px;text-transform:uppercase;">Status</th>
+        <th style="text-align:left;padding:8px 12px;color:var(--text-muted);font-size:11px;text-transform:uppercase;">Date</th>
+      </tr></thead>
+      <tbody>${logs.map(l => `<tr style="border-bottom:1px solid var(--border);">
+        <td style="padding:9px 12px;"><span style="background:#fff7ed;color:#c2410c;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;">${l.bundle_type}</span></td>
+        <td style="padding:9px 12px;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${l.subject || "—"}</td>
+        <td style="padding:9px 12px;text-align:right;font-weight:600;">${l.recipients_count}</td>
+        <td style="padding:9px 12px;text-align:right;">${l.articles_count}</td>
+        <td style="padding:9px 12px;"><span style="color:${l.status==='ok'?'#16a34a':'#dc2626'};font-weight:700;">${l.status==='ok'?'✓ Sent':'⚠ Error'}</span>${l.error?`<div style="font-size:11px;color:#dc2626;margin-top:2px;">${l.error.split('\n')[0]}</div>`:''}</td>
+        <td style="padding:9px 12px;color:var(--text-muted);">${formatDate(l.sent_at)}</td>
+      </tr>`).join("")}</tbody>
+    </table>`;
+  } catch (e) {
+    document.getElementById("send-logs").innerHTML = `<p style="color:red;">${e.message}</p>`;
+  }
 }
 
 document.addEventListener("DOMContentLoaded", init);

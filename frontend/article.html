@@ -35,6 +35,12 @@
     .lang-edit-tab.active { color: var(--orange); border-bottom-color: var(--orange); }
     .lang-edit-pane { display: none; }
     .lang-edit-pane.active { display: block; }
+    .edit-content-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .edit-preview-pane { background: #f9fafb; border: 1.5px solid var(--border); border-radius: 8px; padding: 16px; min-height: 200px; max-height: 420px; overflow-y: auto; font-size: 13px; }
+    .edit-preview-toggle { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .edit-preview-toggle button { font-size: 11px; padding: 3px 10px; border-radius: 4px; border: 1px solid var(--border); background: white; cursor: pointer; color: var(--text-muted); transition: all 0.15s; }
+    .edit-preview-toggle button.active { background: var(--orange); color: white; border-color: var(--orange); }
+    @media (max-width: 900px) { .edit-content-grid { grid-template-columns: 1fr; } }
     .pdf-btn {
       display: inline-flex; align-items: center; gap: 6px;
       background: var(--orange); color: white; border: none;
@@ -110,8 +116,15 @@
         <textarea class="form-control" id="edit-excerpt" style="min-height:60px;"></textarea>
       </div>
       <div class="form-group">
-        <label data-i18n="art_content_lbl">Content HTML</label>
-        <textarea class="form-control" id="edit-content" style="min-height:300px;font-family:monospace;font-size:13px;"></textarea>
+        <div class="edit-preview-toggle">
+          <label data-i18n="art_content_lbl" style="margin:0;">Content HTML</label>
+          <button id="preview-toggle-en" class="active" onclick="toggleEditPreview('en', this)">Source</button>
+          <button onclick="toggleEditPreview('en', this)">Preview</button>
+        </div>
+        <div class="edit-content-grid">
+          <textarea class="form-control" id="edit-content" style="min-height:300px;font-family:monospace;font-size:12px;" oninput="refreshEditPreview('en')"></textarea>
+          <div class="edit-preview-pane article-content" id="edit-preview-en"></div>
+        </div>
       </div>
     </div>
     <div class="lang-edit-pane" id="pane-zh-cn">
@@ -124,8 +137,15 @@
         <textarea class="form-control" id="edit-excerpt-zh-cn" style="min-height:60px;"></textarea>
       </div>
       <div class="form-group">
-        <label>内容 HTML（简体中文）</label>
-        <textarea class="form-control" id="edit-content-zh-cn" style="min-height:300px;font-family:monospace;font-size:13px;"></textarea>
+        <div class="edit-preview-toggle">
+          <label style="margin:0;">内容 HTML（简体中文）</label>
+          <button id="preview-toggle-zh-cn" class="active" onclick="toggleEditPreview('zh-cn', this)">Source</button>
+          <button onclick="toggleEditPreview('zh-cn', this)">Preview</button>
+        </div>
+        <div class="edit-content-grid">
+          <textarea class="form-control" id="edit-content-zh-cn" style="min-height:300px;font-family:monospace;font-size:12px;" oninput="refreshEditPreview('zh-cn')"></textarea>
+          <div class="edit-preview-pane article-content" id="edit-preview-zh-cn"></div>
+        </div>
       </div>
     </div>
     <div class="lang-edit-pane" id="pane-zh-hk">
@@ -138,8 +158,15 @@
         <textarea class="form-control" id="edit-excerpt-zh-hk" style="min-height:60px;"></textarea>
       </div>
       <div class="form-group">
-        <label>內容 HTML（繁體中文）</label>
-        <textarea class="form-control" id="edit-content-zh-hk" style="min-height:300px;font-family:monospace;font-size:13px;"></textarea>
+        <div class="edit-preview-toggle">
+          <label style="margin:0;">內容 HTML（繁體中文）</label>
+          <button id="preview-toggle-zh-hk" class="active" onclick="toggleEditPreview('zh-hk', this)">Source</button>
+          <button onclick="toggleEditPreview('zh-hk', this)">Preview</button>
+        </div>
+        <div class="edit-content-grid">
+          <textarea class="form-control" id="edit-content-zh-hk" style="min-height:300px;font-family:monospace;font-size:12px;" oninput="refreshEditPreview('zh-hk')"></textarea>
+          <div class="edit-preview-pane article-content" id="edit-preview-zh-hk"></div>
+        </div>
       </div>
     </div>
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px;">
@@ -169,6 +196,33 @@ function switchEditLang(lang, el) {
   document.querySelectorAll(".lang-edit-pane").forEach(p => p.classList.remove("active"));
   el.classList.add("active");
   document.getElementById(`pane-${lang}`).classList.add("active");
+  refreshEditPreview(lang);
+}
+
+function refreshEditPreview(lang) {
+  const suffix = lang === "en" ? "" : `-${lang}`;
+  const src = document.getElementById(`edit-content${suffix}`)?.value || "";
+  const prev = document.getElementById(`edit-preview-${lang}`);
+  if (prev) prev.innerHTML = src;
+}
+
+function toggleEditPreview(lang, btn) {
+  const suffix = lang === "en" ? "" : `-${lang}`;
+  const ta   = document.getElementById(`edit-content${suffix}`);
+  const prev = document.getElementById(`edit-preview-${lang}`);
+  const grid = ta?.closest(".edit-content-grid");
+  const btns = btn.closest(".edit-preview-toggle").querySelectorAll("button");
+  btns.forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  const isSource = btn.textContent.trim() === "Source";
+  if (grid) {
+    grid.style.gridTemplateColumns = isSource ? "1fr 1fr" : "0 1fr";
+    if (ta) ta.style.display = isSource ? "" : "none";
+  }
+  if (prev) {
+    refreshEditPreview(lang);
+    prev.style.maxHeight = isSource ? "420px" : "600px";
+  }
 }
 
 async function loadArticle() {
@@ -296,7 +350,12 @@ async function loadSidebarMarkets() {
   } catch {}
 }
 
-function openEditModal() { openModal("edit-modal"); }
+function openEditModal() {
+  openModal("edit-modal");
+  refreshEditPreview("en");
+  refreshEditPreview("zh-cn");
+  refreshEditPreview("zh-hk");
+}
 
 async function saveEdit() {
   const payload = {
