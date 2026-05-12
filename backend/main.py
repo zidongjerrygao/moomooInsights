@@ -799,6 +799,8 @@ def send_bundle(payload: SendBundleIn, background_tasks: BackgroundTasks, db: Se
     subject = f"{label} — {datetime.utcnow().strftime('%b %d, %Y')} | Moomoo Insights"
     html = _build_email_html(bt, art_dicts, _SITE_URL)
 
+    recipient_emails = [sub.email for sub in subscribers]
+
     log = EmailSendLog(
         bundle_type=bt, subject=subject,
         recipients_count=len(subscribers), articles_count=len(articles),
@@ -810,11 +812,11 @@ def send_bundle(payload: SendBundleIn, background_tasks: BackgroundTasks, db: Se
 
     def _dispatch():
         errors = []
-        for sub in subscribers:
+        for email in recipient_emails:
             try:
-                _send_email(sub.email, subject, html)
+                _send_email(email, subject, html)
             except Exception as exc:
-                errors.append(f"{sub.email}: {exc}")
+                errors.append(f"{email}: {exc}")
         with SessionLocal() as s2:
             entry = s2.query(EmailSendLog).filter(EmailSendLog.id == log_id).first()
             if entry:
