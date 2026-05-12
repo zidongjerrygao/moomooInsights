@@ -721,11 +721,17 @@ def _send_email(to_addr: str, subject: str, html: str) -> None:
     msg["To"] = to_addr
     msg.attach(MIMEText(html, "html"))
     ctx = ssl.create_default_context()
-    with smtplib.SMTP(_SMTP_HOST, _SMTP_PORT) as srv:
-        srv.ehlo()
-        srv.starttls(context=ctx)
-        srv.login(_SMTP_USER, _SMTP_PASS)
-        srv.sendmail(_EMAIL_FROM, to_addr, msg.as_string())
+    port = _SMTP_PORT
+    if port == 465:
+        with smtplib.SMTP_SSL(_SMTP_HOST, port, context=ctx) as srv:
+            srv.login(_SMTP_USER, _SMTP_PASS)
+            srv.sendmail(_EMAIL_FROM, to_addr, msg.as_string())
+    else:
+        with smtplib.SMTP(_SMTP_HOST, port) as srv:
+            srv.ehlo()
+            srv.starttls(context=ctx)
+            srv.login(_SMTP_USER, _SMTP_PASS)
+            srv.sendmail(_EMAIL_FROM, to_addr, msg.as_string())
 
 
 class SubscriberIn(BaseModel):
