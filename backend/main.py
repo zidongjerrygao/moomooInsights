@@ -828,6 +828,25 @@ def list_send_logs(db: Session = Depends(get_db), _: User = Depends(require_admi
     return [{"id": l.id, "bundle_type": l.bundle_type, "subject": l.subject, "recipients_count": l.recipients_count, "articles_count": l.articles_count, "sent_at": l.sent_at.isoformat(), "status": l.status, "error": l.error} for l in logs]
 
 
+@app.post("/api/admin/email/test")
+def test_email(db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    """Synchronous email test — returns the actual error immediately (not in background)."""
+    cfg = {
+        "SMTP_HOST": _SMTP_HOST or "(not set)",
+        "SMTP_PORT": _SMTP_PORT,
+        "SMTP_USER": _SMTP_USER or "(not set)",
+        "SMTP_PASS": "***" if _SMTP_PASS else "(not set)",
+        "EMAIL_FROM": _EMAIL_FROM or "(not set)",
+    }
+    if not _SMTP_HOST or not _SMTP_USER or not _SMTP_PASS:
+        return {"ok": False, "config": cfg, "error": "SMTP env vars missing — set SMTP_HOST, SMTP_USER, SMTP_PASS in Railway"}
+    try:
+        _send_email(_SMTP_USER, "Moomoo Email Test", "<p>Email delivery is working ✓</p>")
+        return {"ok": True, "config": cfg, "message": f"Test email sent to {_SMTP_USER}"}
+    except Exception as e:
+        return {"ok": False, "config": cfg, "error": str(e)}
+
+
 # ── Talk to Pro — Cembalest-style streaming chat ──────────────────────────────
 
 _CEMBALEST_SYSTEM = """You are the Moomoo Investment Research Team's resident market strategist, \
