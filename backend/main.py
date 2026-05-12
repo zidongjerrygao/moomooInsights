@@ -15,6 +15,7 @@ import stripe
 import anthropic as _anthropic
 
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "")
+_ANTHROPIC_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 from fastapi import FastAPI, Depends, HTTPException, status, BackgroundTasks, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -886,6 +887,9 @@ class ChatRequest(BaseModel):
 
 @app.post("/api/chat/stream")
 async def chat_stream(req: ChatRequest):
+    if not _ANTHROPIC_KEY:
+        raise HTTPException(status_code=503, detail="ANTHROPIC_API_KEY not configured — set it in Railway environment variables")
+
     safe_messages = [
         {"role": m["role"], "content": str(m["content"])}
         for m in req.messages
@@ -896,7 +900,7 @@ async def chat_stream(req: ChatRequest):
 
     async def generate():
         try:
-            client = _anthropic.AsyncAnthropic()
+            client = _anthropic.AsyncAnthropic(api_key=_ANTHROPIC_KEY)
             async with client.messages.stream(
                 model="claude-sonnet-4-6",
                 max_tokens=1024,
