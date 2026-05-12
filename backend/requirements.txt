@@ -8,3 +8,4 @@ apscheduler==3.10.4
 anthropic>=0.40.0
 yfinance>=0.2.40
 stripe>=8.0.0
+openai>=1.0.0

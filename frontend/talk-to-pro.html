@@ -194,6 +194,34 @@
       padding-bottom: 8px;
       flex-shrink: 0;
     }
+
+    .mode-toggle {
+      display: flex;
+      gap: 0;
+      background: var(--bg-card, #f1f5f9);
+      border-radius: 10px;
+      padding: 3px;
+      flex-shrink: 0;
+      margin-bottom: 16px;
+      width: fit-content;
+    }
+    .mode-btn {
+      padding: 7px 18px;
+      border-radius: 8px;
+      border: none;
+      background: none;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: background 0.15s, color 0.15s;
+      white-space: nowrap;
+    }
+    .mode-btn.active {
+      background: #fff;
+      color: var(--orange);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    }
   </style>
 </head>
 <body>
@@ -212,21 +240,19 @@
 <div class="pro-layout">
 
   <div class="pro-header">
-    <div class="pro-avatar">📊</div>
+    <div class="pro-avatar" id="pro-avatar">📊</div>
     <div class="pro-header-text">
       <h2 data-i18n="ttp_heading">Talk to Pro</h2>
-      <p><span class="pro-status"></span><span data-i18n="ttp_subtitle_detail">Moomoo Investment Research · Eye on the Market style</span></p>
+      <p><span class="pro-status"></span><span id="pro-subtitle">Moomoo Investment Research · Eye on the Market</span></p>
     </div>
   </div>
 
-  <div class="suggestion-chips" id="chips">
-    <button class="chip" onclick="sendChip(this)" data-i18n="ttp_chip1">Fed policy outlook</button>
-    <button class="chip" onclick="sendChip(this)" data-i18n="ttp_chip2">AI capex — bubble or foundation?</button>
-    <button class="chip" onclick="sendChip(this)" data-i18n="ttp_chip3">Energy transition realism</button>
-    <button class="chip" onclick="sendChip(this)" data-i18n="ttp_chip4">US fiscal sustainability</button>
-    <button class="chip" onclick="sendChip(this)" data-i18n="ttp_chip5">60/40 vs alternatives</button>
-    <button class="chip" onclick="sendChip(this)" data-i18n="ttp_chip6">China — investable again?</button>
+  <div class="mode-toggle">
+    <button class="mode-btn active" id="mode-cembalest" onclick="setMode('cembalest',this)">📈 Eye on the Market</button>
+    <button class="mode-btn" id="mode-dbs" onclick="setMode('dbs',this)">🌏 Asia Strategy</button>
   </div>
+
+  <div class="suggestion-chips" id="chips"></div>
 
   <div class="chat-window" id="chat-window">
     <!-- Welcome message -->
@@ -253,24 +279,79 @@
 </div>
 
 <script src="i18n.js"></script>
+<script src="capacitor.js"></script>
 <script src="app.js"></script>
 <script>
-const API_BASE = "http://localhost:8001";
+const API_BASE = "";
 
 const chatWindow = document.getElementById("chat-window");
 const msgInput   = document.getElementById("msg-input");
 const sendBtn    = document.getElementById("send-btn");
 
-// Conversation history sent to API
+let currentMode = "cembalest";
 const history = [];
 
-// Auto-grow textarea
+const MODES = {
+  cembalest: {
+    avatar: "📊",
+    subtitle: "Moomoo Investment Research · Eye on the Market",
+    welcome: "Markets are rarely wrong about direction — only timing. Ask me about macro themes, asset allocation, sector dynamics, or anything you'd expect from a data-driven investment strategist. I'll give you precise, historically grounded analysis. No platitudes, no hedged non-answers.",
+    chips: [
+      "Fed policy outlook",
+      "AI capex — bubble or foundation?",
+      "Energy transition realism",
+      "US fiscal sustainability",
+      "60/40 vs alternatives",
+      "China — investable again?",
+    ],
+  },
+  dbs: {
+    avatar: "🌏",
+    subtitle: "Moomoo Investment Strategy · Asia Barbell Framework",
+    welcome: "Asia ex-Japan remains our primary conviction. The Barbell framework — growth assets paired with income anchors — is the lens I use to navigate every market cycle. Ask me about Asia positioning, the AI infrastructure buildout, credit spreads, or how to think about the US-China dynamic from an Asian investor's perspective.",
+    chips: [
+      "Asia ex-Japan — overweight case",
+      "China equities — policy pivot or trap?",
+      "Barbell Strategy — current positioning",
+      "AI infrastructure vs adapters in Asia",
+      "Asian IG bonds vs US Treasuries",
+      "Gold as a portfolio buffer",
+    ],
+  },
+};
+
+function setMode(mode, btn) {
+  currentMode = mode;
+  document.querySelectorAll(".mode-btn").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  const cfg = MODES[mode];
+  document.getElementById("pro-avatar").textContent = cfg.avatar;
+  document.getElementById("pro-subtitle").textContent = cfg.subtitle;
+  renderChips();
+  // Update welcome message
+  const welcome = document.getElementById("welcome-msg");
+  if (welcome) welcome.querySelector(".msg-bubble").innerHTML = formatBotText(cfg.welcome);
+  // Clear history on mode switch
+  history.length = 0;
+}
+
+function renderChips() {
+  const chips = document.getElementById("chips");
+  const cfg = MODES[currentMode];
+  chips.style.display = "";
+  chips.innerHTML = cfg.chips.map(c =>
+    `<button class="chip" onclick="sendChip(this)">${c}</button>`
+  ).join("");
+}
+
+// Init chips on load
+renderChips();
+
 msgInput.addEventListener("input", () => {
   msgInput.style.height = "auto";
   msgInput.style.height = Math.min(msgInput.scrollHeight, 140) + "px";
 });
 
-// Send on Enter (Shift+Enter for newline)
 msgInput.addEventListener("keydown", e => {
   if (e.key === "Enter" && !e.shiftKey) {
     e.preventDefault();
@@ -290,10 +371,11 @@ function scrollBottom() {
 
 function appendMsg(role, text) {
   const isBot = role === "bot";
+  const avatar = isBot ? MODES[currentMode].avatar : "👤";
   const div = document.createElement("div");
   div.className = `msg ${isBot ? "bot" : "user"}`;
   div.innerHTML = `
-    <div class="msg-avatar">${isBot ? "📊" : "👤"}</div>
+    <div class="msg-avatar">${avatar}</div>
     <div class="msg-bubble">${isBot ? formatBotText(text) : escHtml(text)}</div>
   `;
   chatWindow.appendChild(div);
@@ -306,7 +388,7 @@ function showTyping() {
   div.className = "msg bot";
   div.id = "typing-indicator";
   div.innerHTML = `
-    <div class="msg-avatar">📊</div>
+    <div class="msg-avatar">${MODES[currentMode].avatar}</div>
     <div class="msg-bubble"><div class="typing-dots"><span></span><span></span><span></span></div></div>
   `;
   chatWindow.appendChild(div);
@@ -322,7 +404,6 @@ function escHtml(s) {
   return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\n/g,"<br>");
 }
 
-// Convert plain text paragraphs to <p> tags
 function formatBotText(text) {
   return text.split(/\n{2,}/).map(p => `<p>${p.replace(/\n/g,"<br>")}</p>`).join("");
 }
@@ -348,10 +429,13 @@ async function sendMessage() {
     const res = await fetch(`${API_BASE}/api/chat/stream`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages: history }),
+      body: JSON.stringify({ messages: history, mode: currentMode }),
     });
 
-    if (!res.ok) throw new Error(`Server error ${res.status}`);
+    if (!res.ok) {
+      const detail = await res.json().catch(() => ({}));
+      throw new Error(detail.detail || `Server error ${res.status}`);
+    }
 
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
@@ -363,7 +447,7 @@ async function sendMessage() {
 
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split("\n");
-      buffer = lines.pop(); // keep incomplete last line
+      buffer = lines.pop();
 
       for (const line of lines) {
         if (!line.startsWith("data: ")) continue;
@@ -383,9 +467,7 @@ async function sendMessage() {
             botBubble.innerHTML = formatBotText(botText);
             scrollBottom();
           }
-        } catch (parseErr) {
-          // ignore malformed SSE lines
-        }
+        } catch (parseErr) { /* ignore malformed SSE lines */ }
       }
     }
   } catch (err) {
