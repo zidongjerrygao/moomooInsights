@@ -15,6 +15,7 @@ from dotenv import load_dotenv
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 import stripe
 import anthropic as _anthropic
+from openai import AsyncOpenAI
 
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "")
 _ANTHROPIC_KEY  = os.getenv("ANTHROPIC_API_KEY", "")
@@ -952,8 +953,6 @@ async def chat_stream(req: ChatRequest):
     if not safe_messages:
         raise HTTPException(status_code=400, detail="No messages provided")
 
-    from openai import AsyncOpenAI
-
     async def generate():
         try:
             client = AsyncOpenAI(api_key=_DEEPSEEK_KEY, base_url="https://api.deepseek.com")
@@ -969,7 +968,8 @@ async def chat_stream(req: ChatRequest):
                     yield f"data: {json.dumps({'text': text})}\n\n"
         except Exception as exc:
             yield f"data: {json.dumps({'error': str(exc)})}\n\n"
-        yield "data: [DONE]\n\n"
+        finally:
+            yield "data: [DONE]\n\n"
 
     return StreamingResponse(generate(), media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
