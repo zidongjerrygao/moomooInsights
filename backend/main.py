@@ -15,7 +15,6 @@ from dotenv import load_dotenv
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 import stripe
 import anthropic as _anthropic
-from openai import AsyncOpenAI
 
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "")
 _ANTHROPIC_KEY  = os.getenv("ANTHROPIC_API_KEY", "")
@@ -955,6 +954,7 @@ async def chat_stream(req: ChatRequest):
 
     async def generate():
         try:
+            from openai import AsyncOpenAI
             client = AsyncOpenAI(api_key=_DEEPSEEK_KEY, base_url="https://api.deepseek.com")
             stream = await client.chat.completions.create(
                 model="deepseek-chat",
