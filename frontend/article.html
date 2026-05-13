@@ -50,7 +50,15 @@
       letter-spacing: 0.3px; transition: opacity 0.15s;
     }
     .pdf-btn:hover { opacity: 0.88; }
+    @page {
+      /* margin:0 collapses the margin band where browsers render date/title/URL/page-number */
+      margin: 0;
+      size: A4;
+    }
     @media print {
+      /* Give content its own breathing room since @page margin is 0 */
+      body { padding: 1.5cm !important; }
+      html { -webkit-print-color-adjust: exact !important; }
       .nav, .ticker-bar, .footer, .article-sidebar,
       .breadcrumb, .admin-toolbar, .pdf-btn { display: none !important; }
       .article-layout { display: block !important; }
