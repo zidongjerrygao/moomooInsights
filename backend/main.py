@@ -954,18 +954,34 @@ async def chat_stream(req: ChatRequest):
 
     async def generate():
         try:
-            from openai import AsyncOpenAI
-            client = AsyncOpenAI(api_key=_DEEPSEEK_KEY, base_url="https://api.deepseek.com")
-            stream = await client.chat.completions.create(
-                model="deepseek-chat",
-                max_tokens=1024,
-                messages=[{"role": "system", "content": system}] + safe_messages,
-                stream=True,
-            )
-            async for chunk in stream:
-                text = chunk.choices[0].delta.content or ""
-                if text:
-                    yield f"data: {json.dumps({'text': text})}\n\n"
+            import httpx
+            body = {
+                "model": "deepseek-chat",
+                "max_tokens": 1024,
+                "messages": [{"role": "system", "content": system}] + safe_messages,
+                "stream": True,
+            }
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                async with client.stream(
+                    "POST",
+                    "https://api.deepseek.com/chat/completions",
+                    json=body,
+                    headers={"Authorization": f"Bearer {_DEEPSEEK_KEY}"},
+                ) as resp:
+                    resp.raise_for_status()
+                    async for line in resp.aiter_lines():
+                        if not line.startswith("data: "):
+                            continue
+                        chunk = line[6:].strip()
+                        if chunk == "[DONE]":
+                            break
+                        try:
+                            data = json.loads(chunk)
+                            text = data["choices"][0]["delta"].get("content") or ""
+                            if text:
+                                yield f"data: {json.dumps({'text': text})}\n\n"
+                        except Exception:
+                            pass
         except Exception as exc:
             yield f"data: {json.dumps({'error': str(exc)})}\n\n"
         finally:
