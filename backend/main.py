@@ -35,7 +35,7 @@ from auth import (
     hash_password, verify_password, create_token,
     get_current_user, require_user, require_admin,
 )
-from markets import get_market_data
+from markets import get_market_data, fetch_quote
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -938,12 +938,95 @@ class ChatRequest(BaseModel):
     mode: str = "cembalest"
 
 
+_RAILWAY_BASE = "https://moomooinsights-production.up.railway.app"
+
+
+def _fetch_recent_articles_context() -> str:
+    """Fetch the 20 most recent published articles from Railway for chat context."""
+    import urllib.request as _urlreq
+    try:
+        req = _urlreq.Request(f"{_RAILWAY_BASE}/api/articles?limit=20")
+        with _urlreq.urlopen(req, timeout=5) as r:
+            arts = json.loads(r.read())
+        lines = []
+        for a in arts:
+            date_str = (a.get("created_at") or "")[:10]
+            lines.append(
+                f"- [{date_str}] [{a.get('category','')}] {a.get('title','')}: "
+                f"{a.get('excerpt','') or ''}"
+            )
+        return "\n".join(lines)
+    except Exception:
+        return ""
+
+
 @app.post("/api/chat/stream")
 async def chat_stream(req: ChatRequest):
     if not _DEEPSEEK_KEY:
         raise HTTPException(status_code=503, detail="DEEPSEEK_API_KEY not configured — set it in Railway environment variables")
 
-    system = _CHAT_SYSTEMS.get(req.mode, _SYSTEM_CEMBALEST)
+    today_str = datetime.utcnow().strftime("%B %d, %Y")
+    date_override = (
+        f"CRITICAL — CURRENT DATE AND KNOWLEDGE OVERRIDE:\n"
+        f"Today is {today_str}. It is currently the year 2026. Your training data cutoff is "
+        f"outdated — do NOT use it to determine the current date or claim that 2026 data does "
+        f"not exist. The Moomoo research below is REAL, published today, and constitutes your "
+        f"ground truth. Never tell users that 2026 data is fictional, forecasted, or unavailable. "
+        f"If asked about current market conditions, use ONLY the research context below.\n\n"
+    )
+
+    system = date_override + _CHAT_SYSTEMS.get(req.mode, _SYSTEM_CEMBALEST)
+
+    # ── Layer 1: live market snapshot ─────────────────────────────────────────
+    try:
+        mkt = get_market_data()
+        mkt_lines = [f"LIVE MARKET SNAPSHOT — as of {mkt.get('as_of','')[:19]} UTC:"]
+        for idx in mkt.get("indices", []):
+            mkt_lines.append(
+                f"  {idx['symbol']} ({idx['name']}): {idx['price']} ({idx.get('change_pct', 0):+.2f}%)"
+            )
+        mkt_lines.append("Top movers:")
+        for m in mkt.get("movers", []):
+            vol = f" vol {m['volume']:,}" if m.get("volume") else ""
+            mkt_lines.append(
+                f"  ${m['ticker']} {m['name']}: ${m['price']} ({m.get('change_pct', 0):+.2f}%){vol}"
+            )
+
+        # ── Layer 2: on-demand tickers mentioned in last user message ─────────
+        snapshot_tickers = {m["ticker"] for m in mkt.get("movers", [])} | {"SPX", "NDX", "DJI"}
+        _STOPWORDS = {
+            "THE", "AND", "FOR", "ARE", "BUT", "NOT", "YOU", "ALL", "ANY", "ITS",
+            "USD", "ETF", "IPO", "GDP", "FED", "ECB", "CPI", "PPI", "PCE", "YOY",
+            "QOQ", "EPS", "CEO", "CFO", "SEC", "NYSE", "WHAT", "WHEN", "WITH",
+            "THIS", "THAT", "THEY", "THEIR", "FROM", "HAVE", "DOES", "BEEN",
+        }
+        last_msg = next(
+            (m["content"] for m in reversed(req.messages) if m.get("role") == "user"), ""
+        )
+        dollar_tickers = set(re.findall(r'\$([A-Z]{1,5})', last_msg.upper()))
+        bare_tickers = set(re.findall(r'\b([A-Z]{2,5})\b', last_msg))
+        mentioned = (dollar_tickers | bare_tickers) - snapshot_tickers - _STOPWORDS
+        for ticker in list(mentioned)[:5]:
+            q = fetch_quote(ticker)
+            if q:
+                vol = f" vol {q['volume']:,}" if q.get("volume") else ""
+                mkt_lines.append(
+                    f"  ${q['ticker']} {q.get('name', '')}: ${q['price']} ({q.get('change_pct', 0):+.2f}%){vol}"
+                )
+
+        system += "\n\n" + "\n".join(mkt_lines)
+    except Exception:
+        pass  # market data is best-effort; never block the chat
+
+    # ── Recent Moomoo research from Railway ───────────────────────────────────
+    context_block = _fetch_recent_articles_context()
+    if context_block:
+        system += (
+            f"\n\nRECENT MOOMOO RESEARCH — use this as your primary knowledge base. "
+            f"Prefer it over your training data on all market topics:\n"
+            f"{context_block}"
+        )
+
     safe_messages = [
         {"role": m["role"], "content": str(m["content"])}
         for m in req.messages

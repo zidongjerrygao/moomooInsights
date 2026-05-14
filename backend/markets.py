@@ -178,6 +178,45 @@ def _fetch_movers_yahoo() -> list:
     return movers
 
 
+# ── Single-ticker on-demand quote ────────────────────────────────────────────
+
+_quote_cache: dict[str, tuple[datetime, dict]] = {}
+
+
+def fetch_quote(ticker: str) -> Optional[dict]:
+    """Fetch a live quote for any ticker symbol. Returns None on failure."""
+    ticker = ticker.upper().strip()
+    now = datetime.utcnow()
+    if ticker in _quote_cache:
+        cached_at, cached_val = _quote_cache[ticker]
+        if now - cached_at < CACHE_TTL:
+            return cached_val
+    try:
+        # Map common index names to Yahoo symbols
+        yahoo_sym = {"SPX": "^GSPC", "NDX": "^NDX", "DJI": "^DJI",
+                     "VIX": "^VIX", "RUT": "^RUT"}.get(ticker, ticker)
+        q = _fetch_yahoo_quote(yahoo_sym)
+        # Try to get the company name from Yahoo metadata
+        name = ""
+        for host in ("query1", "query2"):
+            try:
+                import requests as _req
+                url = f"https://{host}.finance.yahoo.com/v8/finance/chart/{yahoo_sym}?interval=1d&range=2d"
+                r = _req.get(url, headers=_YAHOO_HEADERS, timeout=8)
+                r.raise_for_status()
+                meta = r.json()["chart"]["result"][0]["meta"]
+                name = meta.get("shortName") or meta.get("longName") or ""
+                break
+            except Exception:
+                pass
+        result = {"ticker": ticker, "name": name, **q}
+        _quote_cache[ticker] = (now, result)
+        return result
+    except Exception as exc:
+        logger.debug("fetch_quote failed for %s: %s", ticker, exc)
+        return None
+
+
 # ── Public API ────────────────────────────────────────────────────────────────
 
 def get_market_data() -> dict:
