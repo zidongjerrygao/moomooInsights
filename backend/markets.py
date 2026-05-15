@@ -24,6 +24,15 @@ YAHOO_INDICES = {
     "DJI": {"ticker": "^DJI",  "name": "Dow Jones"},
 }
 
+TREASURY_YIELDS = [
+    {"key": "BC_2YEAR",  "label": "US2Y",  "name": "2-Year Treasury",  "yahoo": None},
+    {"key": "BC_5YEAR",  "label": "US5Y",  "name": "5-Year Treasury",  "yahoo": "^FVX"},
+    {"key": "BC_10YEAR", "label": "US10Y", "name": "10-Year Treasury", "yahoo": "^TNX"},
+]
+
+_treasury_cache: dict = {}
+_treasury_cache_time: Optional[datetime] = None
+
 FUTU_INDICES = [
     {"code": "US.SPX", "symbol": "SPX", "name": "S&P 500"},
     {"code": "US.NDX", "symbol": "NDX", "name": "Nasdaq 100"},
@@ -217,6 +226,94 @@ def fetch_quote(ticker: str) -> Optional[dict]:
         return None
 
 
+# ── Treasury yields ──────────────────────────────────────────────────────────
+
+def _fetch_treasury_xml(month_str: str) -> list:
+    """Fetch Treasury yield curve XML for the given YYYYMM month string."""
+    import xml.etree.ElementTree as ET
+    url = (
+        "https://home.treasury.gov/resource-center/data-chart-center/"
+        f"interest-rates/pages/xml?data=daily_treasury_yield_curve"
+        f"&field_tdr_date_value_month={month_str}"
+    )
+    r = requests.get(url, headers=_YAHOO_HEADERS, timeout=12)
+    r.raise_for_status()
+    root = ET.fromstring(r.content)
+    ATOM = "http://www.w3.org/2005/Atom"
+    D_NS = "{http://schemas.microsoft.com/ado/2007/08/dataservices}"
+    M_NS = "{http://schemas.microsoft.com/ado/2007/08/dataservices/metadata}"
+
+    entries = root.findall(f"{{{ATOM}}}entry")
+    if not entries:
+        return []
+
+    def _get_props(entry):
+        content = entry.find(f"{{{ATOM}}}content")
+        if content is None:
+            return None
+        return content.find(f"{M_NS}properties")
+
+    latest_props = _get_props(entries[-1])
+    prev_props = _get_props(entries[-2]) if len(entries) >= 2 else None
+
+    results = []
+    for t in TREASURY_YIELDS:
+        el = latest_props.find(f"{D_NS}{t['key']}") if latest_props is not None else None
+        prev_el = prev_props.find(f"{D_NS}{t['key']}") if prev_props is not None else None
+        if el is not None and el.text:
+            rate = float(el.text)
+            prev_rate = float(prev_el.text) if prev_el is not None and prev_el.text else rate
+            results.append({
+                "label": t["label"],
+                "name": t["name"],
+                "rate": rate,
+                "change": round(rate - prev_rate, 3),
+            })
+    return results
+
+
+def _fetch_treasury_yields() -> list:
+    global _treasury_cache, _treasury_cache_time
+    now = datetime.utcnow()
+    if _treasury_cache_time and now - _treasury_cache_time < CACHE_TTL and _treasury_cache:
+        return _treasury_cache
+
+    # Try current month, fall back to previous month if empty
+    for delta in (0, 1):
+        month_dt = now.replace(day=1) - timedelta(days=delta * 28)
+        month_str = month_dt.strftime("%Y%m")
+        try:
+            results = _fetch_treasury_xml(month_str)
+            if results:
+                _treasury_cache = results
+                _treasury_cache_time = now
+                return results
+        except Exception as exc:
+            logger.warning("Treasury XML failed for %s: %s", month_str, exc)
+
+    # Yahoo Finance fallback for 5Y and 10Y only
+    fallbacks = [
+        {"label": "US5Y",  "name": "5-Year Treasury",  "yahoo": "^FVX"},
+        {"label": "US10Y", "name": "10-Year Treasury", "yahoo": "^TNX"},
+    ]
+    results = []
+    for t in fallbacks:
+        try:
+            q = _fetch_yahoo_quote(t["yahoo"])
+            results.append({
+                "label": t["label"],
+                "name": t["name"],
+                "rate": round(q["price"], 4),
+                "change": round(q["change"], 4),
+            })
+        except Exception as exc:
+            logger.warning("Yahoo Treasury fallback failed for %s: %s", t["yahoo"], exc)
+    if results:
+        _treasury_cache = results
+        _treasury_cache_time = now
+    return results
+
+
 # ── Public API ────────────────────────────────────────────────────────────────
 
 def get_market_data() -> dict:
@@ -232,9 +329,16 @@ def get_market_data() -> dict:
         logger.warning("Yahoo movers failed (%s)", exc)
         movers = []
 
+    try:
+        treasuries = _fetch_treasury_yields()
+    except Exception as exc:
+        logger.warning("Treasury yields failed (%s)", exc)
+        treasuries = []
+
     result = {
         "indices": indices,
         "movers": movers,
+        "treasuries": treasuries,
         "source": "yahoo",
         "as_of": datetime.utcnow().isoformat(),
     }
