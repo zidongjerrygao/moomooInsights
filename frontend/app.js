@@ -263,8 +263,7 @@ async function loadTickerBar(container) {
       </span>`;
     });
     const html = [...indices, ...yields].join("");
-    // duplicate for seamless loop
-    container.innerHTML = `<div class="ticker-scroll">${html}${html}</div>`;
+    container.innerHTML = `<div class="ticker-scroll">${html}</div>`;
   } catch {
     container.innerHTML = `<div class="ticker-scroll"><span class="ticker-item"><span class="label">Markets data loading...</span></span></div>`;
   }
