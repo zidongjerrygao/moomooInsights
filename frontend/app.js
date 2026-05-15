@@ -399,12 +399,15 @@ function articleThumbnailSVG(article) {
   let subText = '';
   let iconPath = '';
 
-  // Extract ticker from earnings/trade titles (e.g. "NVDA Earnings Review...")
+  // Extract ticker from title — check start first, then scan whole title
   const tickerM = title.match(/^([A-Z]{2,5})[\s:]/);
-  if (tickerM && THUMB_TICKER[tickerM[1]]) {
-    const t = THUMB_TICKER[tickerM[1]];
-    theme = {g1:t.g1, g2:t.g2, ac:t.ac, lb:tickerM[1]};
-    mainText = tickerM[1];
+  const allWords = title.match(/\b([A-Z]{2,5})\b/g) || [];
+  const tickerWord = (tickerM && THUMB_TICKER[tickerM[1]]) ? tickerM[1]
+    : allWords.find(w => THUMB_TICKER[w]) || null;
+  if (tickerWord) {
+    const t = THUMB_TICKER[tickerWord];
+    theme = {g1:t.g1, g2:t.g2, ac:t.ac, lb:tickerWord};
+    mainText = tickerWord;
   } else if (['TSLA','NVDA'].includes(cat) && THUMB_TICKER[cat]) {
     const t = THUMB_TICKER[cat];
     theme = {g1:t.g1, g2:t.g2, ac:t.ac, lb:cat};
@@ -417,9 +420,14 @@ function articleThumbnailSVG(article) {
     if (dm) subText = dm[1].trim();
   }
 
-  // For Earnings: show clean label
+  // For Earnings: show ticker as main text, subtitle as review/preview label
   if (cat === 'Earnings') {
     subText = /Preview/i.test(title) ? 'EARNINGS PREVIEW' : /Review/i.test(title) ? 'EARNINGS REVIEW' : 'EARNINGS';
+    if (mainText === theme.lb) {
+      const em = title.match(/\b([A-Z]{1,5})\s+Earnings/);
+      if (em) mainText = em[1];
+      else if (allWords.length) mainText = allWords[0];
+    }
   }
 
   // Seeded decorative bars
