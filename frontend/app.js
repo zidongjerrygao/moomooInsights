@@ -417,11 +417,9 @@ function articleThumbnailSVG(article) {
     if (dm) subText = dm[1].trim();
   }
 
-  // For Earnings: try to pull EPS/revenue number from excerpt
+  // For Earnings: show clean label
   if (cat === 'Earnings') {
-    const epsM = (excerpt + ' ' + title).match(/\$?([\d.]+[BM]?\s*(?:EPS|Revenue|Rev|billion|million)?)/i);
-    if (epsM) subText = epsM[0].trim().slice(0, 18);
-    else subText = title.match(/Preview|Review/i) ? (title.includes('Preview') ? 'EARNINGS PREVIEW' : 'EARNINGS REVIEW') : '';
+    subText = /Preview/i.test(title) ? 'EARNINGS PREVIEW' : /Review/i.test(title) ? 'EARNINGS REVIEW' : 'EARNINGS';
   }
 
   // Seeded decorative bars
