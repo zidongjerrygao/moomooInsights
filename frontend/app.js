@@ -452,7 +452,7 @@ ${Array.from({length:4},(_,r)=>Array.from({length:9},(_,c)=>`<circle cx="${c*50+
 ${bars.map((h,i)=>{const bh=h*0.62,x=bx0+i*(bw+bgap);return `<rect x="${x.toFixed(1)}" y="${(baseY-bh).toFixed(1)}" width="${bw}" height="${bh.toFixed(1)}" fill="${i%4===1?theme.ac:'#fff'}" opacity="${(0.15+i/bars.length*0.40).toFixed(2)}" rx="2"/>`;}).join('')}
 <rect width="400" height="180" fill="url(#fd${uid})"/>
 <rect x="10" y="10" width="${pillW.toFixed(1)}" height="22" rx="4" fill="${theme.ac}" opacity="0.25"/>
-<text x="18" y="25" font-family="system-ui,sans-serif" font-size="11" font-weight="700" fill="${theme.ac}" letter-spacing="0.5">${catLb}</text>
+<text x="${(10 + pillW / 2).toFixed(1)}" y="25" font-family="system-ui,sans-serif" font-size="11" font-weight="700" fill="${theme.ac}" text-anchor="middle" letter-spacing="0.5">${catLb}</text>
 ${arrow}
 <text x="200" y="${mainY}" font-family="system-ui,sans-serif" font-size="${mainFs}" font-weight="900" fill="white" text-anchor="middle" dominant-baseline="middle" letter-spacing="2" opacity="0.95">${mainText}</text>
 ${subText ? `<text x="200" y="${mainY + mainFs*0.68}" font-family="system-ui,sans-serif" font-size="11" fill="white" text-anchor="middle" dominant-baseline="middle" opacity="0.65" letter-spacing="0.5">${subText}</text>` : ''}
