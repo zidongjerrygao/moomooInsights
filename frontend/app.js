@@ -454,7 +454,7 @@ ${subText ? `<text x="200" y="${mainY + mainFs*0.68}" font-family="system-ui,san
 // ── Article card ──────────────────────────────────────────────────────────────
 function articleCardHTML(a) {
   return `
-    <div class="article-card" onclick="location.href='article.html?id=${a.id}'">
+    <a href="article.html?id=${a.id}" class="article-card" style="text-decoration:none;color:inherit;display:flex;flex-direction:column;">
       <div class="article-card-img-placeholder" style="padding:0;overflow:hidden;">${articleThumbnailSVG(a)}</div>
       <div class="article-card-body">
         <div class="article-card-category">${a.category || "Market Analysis"}</div>
@@ -466,7 +466,7 @@ function articleCardHTML(a) {
           <span>${formatDate(a.created_at)}</span>
         </div>
       </div>
-    </div>`;
+    </a>`;
 }
 
 function categoryEmoji(cat) {
