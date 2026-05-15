@@ -57,15 +57,15 @@ async function loadPage() {
     );
 
     let html = `
-      <div class="hero-article" onclick="location.href='article.html?id=${featured.id}'">
-        <div class="hero-article-img">${categoryEmoji(featured.category)}</div>
+      <a href="article.html?id=${featured.id}" class="hero-article" style="text-decoration:none;color:inherit;">
+        <div class="hero-article-img" style="padding:0;overflow:hidden;">${articleThumbnailSVG(featured)}</div>
         <div class="hero-article-body">
           <span class="hero-tag">${featured.category || "Featured"}</span>
           <h1 class="hero-title">${featured.title}</h1>
           <p class="hero-excerpt">${featured.excerpt || ""}</p>
           <div class="hero-meta">${featured.author} · ${formatDate(featured.created_at)}</div>
         </div>
-      </div>
+      </a>
     `;
 
     // ── Section 1: Daily Market Brief ──────────────────────────────
