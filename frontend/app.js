@@ -496,6 +496,12 @@ ${subText ? `<text x="200" y="${mainY + mainFs*0.68}" font-family="system-ui,san
 </svg>`;
 }
 
+function normalizeAuthor(author) {
+  if (!author) return "Moomoo Insights";
+  if (author === "Moomoo Investment Research Team") return "Moomoo Investment Research";
+  return author;
+}
+
 // ── Article card ──────────────────────────────────────────────────────────────
 function articleCardHTML(a) {
   return `
@@ -506,7 +512,7 @@ function articleCardHTML(a) {
         <div class="article-card-title">${a.title}</div>
         <div class="article-card-excerpt">${a.excerpt || ""}</div>
         <div class="article-card-meta">
-          <span>${a.author || "Moomoo Insights"}</span>
+          <span>${normalizeAuthor(a.author)}</span>
           <span class="dot">·</span>
           <span>${formatDate(a.created_at)}</span>
         </div>
