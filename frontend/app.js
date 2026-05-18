@@ -123,12 +123,12 @@ function renderNav() {
   const tFn = typeof t === "function" ? t : k => k;
 
   const links = [
-    { href: "index.html",        key: "nav_news"        },
-    { href: "markets.html",      key: "nav_markets"     },
-    { href: "strategy.html",     key: "nav_strategy"    },
-    { href: "trade.html",        key: "nav_trade"       },
-    { href: "community.html",    key: "nav_community"   },
-    { href: "talk-to-pro.html",  key: "nav_talk_to_pro" },
+    { href: "/index.html",        key: "nav_news"        },
+    { href: "/markets.html",      key: "nav_markets"     },
+    { href: "/strategy.html",     key: "nav_strategy"    },
+    { href: "/trade.html",        key: "nav_trade"       },
+    { href: "/community.html",    key: "nav_community"   },
+    { href: "/talk-to-pro.html",  key: "nav_talk_to_pro" },
   ];
 
   const navLinks = document.getElementById("nav-links");
@@ -138,9 +138,9 @@ function renderNav() {
 
   if (navLinks) {
     navLinks.innerHTML = links.map(l =>
-      `<a href="${l.href}" class="${page === l.href ? "active" : ""}">${tFn(l.key)}</a>`
+      `<a href="${l.href}" class="${page === l.href.slice(1) ? "active" : ""}">${tFn(l.key)}</a>`
     ).join("");
-    if (user?.is_admin) navLinks.innerHTML += `<a href="admin.html" class="${page === "admin.html" ? "active" : ""}">${tFn("nav_admin")}</a>`;
+    if (user?.is_admin) navLinks.innerHTML += `<a href="/admin.html" class="${page === "admin.html" ? "active" : ""}">${tFn("nav_admin")}</a>`;
 
     // Close mobile nav when a link is clicked
     navLinks.querySelectorAll("a").forEach(a => a.addEventListener("click", () => navLinks.classList.remove("open")));
