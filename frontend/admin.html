@@ -258,7 +258,7 @@ async function init() {
   }
   // Validate token is still accepted by the server
   try {
-    await apiGet("/api/me");
+    await apiGet("/auth/me");
   } catch (e) {
     // apiFetch already handles 401 (clears storage + redirects to login)
     return;
