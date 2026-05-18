@@ -330,6 +330,9 @@ async function loadArticle() {
       }
     });
 
+    // Trim blank right-side space from all chart SVGs after layout is complete
+    requestAnimationFrame(() => requestAnimationFrame(() => trimSvgViewBoxes(document.getElementById('main'))));
+
     // Populate edit modal
     if (admin) {
       document.getElementById("edit-title").value          = article.title;

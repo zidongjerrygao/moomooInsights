@@ -329,7 +329,9 @@ function hideEditor() {
 }
 
 function updatePreview() {
-  document.getElementById("content-preview").innerHTML = document.getElementById("a-content").value;
+  const el = document.getElementById("content-preview");
+  el.innerHTML = document.getElementById("a-content").value;
+  requestAnimationFrame(() => requestAnimationFrame(() => trimSvgViewBoxes(el)));
 }
 
 async function saveArticle() {

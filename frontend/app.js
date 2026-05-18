@@ -94,6 +94,28 @@ const apiPost   = (path, body)   => apiFetch(path, { method: "POST",   body: JSO
 const apiPut    = (path, body)   => apiFetch(path, { method: "PUT",    body: JSON.stringify(body) });
 const apiDelete = (path)         => apiFetch(path, { method: "DELETE" });
 
+// ── SVG viewBox auto-trimmer ──────────────────────────────────────────────────
+// Removes blank right-side space from any chart SVG by trimming the viewBox
+// to match actual rendered content. Safe to call on any container element.
+function trimSvgViewBoxes(container) {
+  const root = container || document;
+  root.querySelectorAll('.chart-block svg, .bar-chart svg').forEach(svg => {
+    try {
+      const vb = svg.getAttribute('viewBox');
+      if (!vb) return;
+      const parts = vb.trim().split(/[\s,]+/).map(Number);
+      if (parts.length !== 4 || parts.some(isNaN)) return;
+      const [vx, vy, vw, vh] = parts;
+      const bbox = svg.getBBox();
+      if (!bbox || !bbox.width) return;
+      const trimmedW = Math.ceil(bbox.x + bbox.width + 18); // 18px right padding
+      if (trimmedW < vw - 25) {
+        svg.setAttribute('viewBox', `${vx} ${vy} ${trimmedW} ${vh}`);
+      }
+    } catch (_) {}
+  });
+}
+
 // ── Nav ───────────────────────────────────────────────────────────────────────
 function renderNav() {
   const user = getUser();
