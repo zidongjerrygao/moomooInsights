@@ -76,6 +76,15 @@ async function apiFetch(path, options = {}) {
   const res = await fetch(`${API}${path}`, { ...options, headers });
   if (res.status === 204) return null;
   const data = await res.json().catch(() => null);
+  if (res.status === 401) {
+    localStorage.removeItem("moomoo_token");
+    localStorage.removeItem("moomoo_user");
+    const loginUrl = (typeof Capacitor !== "undefined" && Capacitor.isNativePlatform())
+      ? "login.html" : "/login.html";
+    alert("Your session has expired. Please log in again.");
+    location.href = loginUrl;
+    throw new Error("Session expired");
+  }
   if (!res.ok) throw new Error(data?.detail || `HTTP ${res.status}`);
   return data;
 }
