@@ -42,8 +42,9 @@
 
   <div id="admin-content" style="display:none;">
 
-    <div class="section-head" style="margin-bottom:24px;">
+    <div class="section-head" style="margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;">
       <h2>Admin Panel</h2>
+      <button class="btn btn-ghost btn-sm" onclick="logout()" style="color:#dc2626;border-color:#dc2626;">&#x2192; Log Out</button>
     </div>
 
     <div class="admin-tabs">
@@ -253,6 +254,13 @@ async function init() {
   const user = getUser();
   if (!user || !user.is_admin) {
     document.getElementById("admin-gate").style.display = "block";
+    return;
+  }
+  // Validate token is still accepted by the server
+  try {
+    await apiGet("/api/me");
+  } catch (e) {
+    // apiFetch already handles 401 (clears storage + redirects to login)
     return;
   }
   document.getElementById("admin-content").style.display = "block";
