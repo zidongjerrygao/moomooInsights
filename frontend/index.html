@@ -63,7 +63,7 @@ async function loadPage() {
           <span class="hero-tag">${featured.category || "Featured"}</span>
           <h1 class="hero-title">${featured.title}</h1>
           <p class="hero-excerpt">${featured.excerpt || ""}</p>
-          <div class="hero-meta">${featured.author} · ${formatDate(featured.created_at)}</div>
+          <div class="hero-meta">${normalizeAuthor(featured.author)} · ${formatDate(featured.created_at)}</div>
         </div>
       </a>
     `;

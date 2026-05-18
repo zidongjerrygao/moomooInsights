@@ -79,6 +79,7 @@
 <footer class="footer" data-i18n="footer_copy">© 2026 Moomoo Insights</footer>
 
 <script src="i18n.js"></script>
+<script src="capacitor.js"></script>
 <script src="app.js"></script>
 <script>
 let activeTicker = "TSLA";
@@ -176,7 +177,7 @@ async function renderTrade() {
           <span class="hero-tag">${featured.category}</span>
           <h1 class="hero-title">${featured.title}</h1>
           <p class="hero-excerpt">${featured.excerpt || ""}</p>
-          <div class="hero-meta">${featured.author} · ${formatDate(featured.created_at)}</div>
+          <div class="hero-meta">${normalizeAuthor(featured.author)} · ${formatDate(featured.created_at)}</div>
         </div>
       </div>
     `;
